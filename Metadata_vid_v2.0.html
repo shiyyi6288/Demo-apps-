@@ -1,0 +1,3707 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MP4 Metadata Editor & Atom Inspector — Pure JS</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --purple: #a78bfa;
+      --amber: #fbbf24;
+      --danger: #f43f5e;
+      --success: #22c55e;
+      --code-bg: #020617;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px 16px 56px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 20px;
+    }
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 1.55rem;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: 1.02rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .dropzone {
+      display: block;
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 26px 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.06);
+    }
+    .dropzone input { display: none; }
+    .dropzone strong { color: var(--accent); }
+    .dropzone small { display: block; margin-top: 6px; color: var(--muted); }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .info-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .info-box .label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .info-box .val {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-top: 2px;
+      word-break: break-word;
+    }
+
+    .atom-flow {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .atom-pill {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.78rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+    }
+    .atom-pill.highlight {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .video-preview-wrap {
+      margin-top: 14px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .video-preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    video {
+      width: 100%;
+      max-height: 280px;
+      border-radius: 6px;
+      background: #000;
+      display: block;
+    }
+
+    .tag-row {
+      display: grid;
+      grid-template-columns: 175px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 620px) {
+      .tag-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+
+    .tag-label {
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+    .tag-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.74rem;
+      color: var(--accent);
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 4px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--code-bg);
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+    }
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #082f49;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+    .btn-secondary {
+      background: #334155;
+      color: var(--text);
+    }
+    .btn-secondary:hover:not(:disabled) { background: #475569; }
+
+    .btn-success {
+      background: rgba(34, 197, 94, 0.16);
+      color: #86efac;
+      border: 1px solid rgba(34, 197, 94, 0.4);
+    }
+    .btn-success:hover:not(:disabled) {
+      background: var(--success);
+      color: #052e16;
+    }
+
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 0.78rem;
+    }
+
+    .custom-add {
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .custom-code-wrap {
+      display: flex;
+      gap: 6px;
+    }
+    @media (max-width: 620px) {
+      .custom-add { grid-template-columns: 1fr; }
+    }
+
+    .preserved-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      font-size: 0.86rem;
+    }
+
+    .actions-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .log-box {
+      margin-top: 14px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .log-box.success { border-color: var(--success); }
+    .log-box.error { border-color: var(--danger); color: #fda4af; }
+
+    /* Atom Tree Inspector Styles */
+    .inspector-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .toolbar-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .badge-mode {
+      font-size: 0.76rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      font-weight: 600;
+    }
+    .badge-mode.edited {
+      background: rgba(34, 197, 94, 0.14);
+      color: #86efac;
+      border-color: rgba(34, 197, 94, 0.4);
+    }
+
+    .inspector-split {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.05fr) minmax(300px, 1.15fr);
+      gap: 14px;
+      align-items: start;
+    }
+    @media (max-width: 820px) {
+      .inspector-split {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tree-panel, .detail-panel {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 360px;
+      max-height: 540px;
+      overflow: auto;
+    }
+
+    .tree-node-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .tree-node-row:hover {
+      background: rgba(148, 163, 184, 0.1);
+    }
+    .tree-node-row.selected {
+      background: rgba(56, 189, 248, 0.18);
+      outline: 1px solid rgba(56, 189, 248, 0.45);
+    }
+
+    .tree-caret {
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.68rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .tree-4cc {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: #1e293b;
+      color: var(--accent);
+      font-size: 0.78rem;
+    }
+    .tree-4cc.container-box { color: var(--purple); }
+    .tree-4cc.media-box { color: var(--amber); }
+    .tree-4cc.meta-box { color: #34d399; }
+
+    .tree-summary {
+      color: var(--muted);
+      font-size: 0.78rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tree-size {
+      margin-left: auto;
+      padding-left: 10px;
+      color: #64748b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.73rem;
+    }
+    .tree-children {
+      padding-left: 16px;
+      border-left: 1px dashed #334155;
+      margin-left: 12px;
+    }
+
+    .detail-path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.78rem;
+      color: var(--accent);
+      word-break: break-all;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .detail-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .detail-kv {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 0.78rem;
+    }
+    .detail-kv span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      margin-bottom: 14px;
+    }
+    .detail-table th, .detail-table td {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid #1e293b;
+      vertical-align: top;
+    }
+    .detail-table th {
+      color: var(--muted);
+      font-weight: 500;
+      width: 38%;
+    }
+    .detail-table td {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      word-break: break-word;
+    }
+
+    .hex-dump {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.74rem;
+      line-height: 1.45;
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 10px;
+      white-space: pre;
+      overflow-x: auto;
+      color: #cbd5e1;
+    }
+
+    .report-preview {
+      margin-top: 12px;
+      width: 100%;
+      min-height: 240px;
+      max-height: 420px;
+      background: var(--code-bg);
+      color: #e2e8f0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.76rem;
+      line-height: 1.45;
+      resize: vertical;
+    }
+
+    /* Atom-Level Editor & Alert Banner Styles */
+    .alert-banner {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      background: rgba(244, 63, 94, 0.14);
+      border: 1px solid rgba(244, 63, 94, 0.45);
+      color: #fecdd3;
+    }
+
+    .atom-actions-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .atom-editor-box {
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .atom-editor-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--purple);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .atom-editor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+    }
+    .atom-field label {
+      display: block;
+      font-size: 0.73rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .atom-field input[type="text"],
+    .atom-field input[type="number"],
+    .atom-field select {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--code-bg);
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+    }
+    .atom-field input:focus,
+    .atom-field select:focus {
+      border-color: var(--accent);
+    }
+
+    .atom-checks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: var(--text);
+    }
+    .atom-checks label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .hex-editor-area {
+      width: 100%;
+      min-height: 110px;
+      background: var(--code-bg);
+      color: #e2e8f0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      resize: vertical;
+      outline: none;
+    }
+    .hex-editor-area:focus {
+      border-color: var(--accent);
+    }
+
+    .inline-feedback {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #bae6fd;
+    }
+    .inline-feedback.error {
+      background: rgba(244, 63, 94, 0.14);
+      border-color: rgba(244, 63, 94, 0.45);
+      color: #fecdd3;
+    }
+    .inline-feedback.success {
+      background: rgba(34, 197, 94, 0.14);
+      border-color: rgba(34, 197, 94, 0.45);
+      color: #bbf7d0;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>MP4 Metadata &amp; Atom Structure Editor</h1>
+      <p>Baca, ubah, hapus metadata serta edit struktur MP4/M4V/MOV hingga tingkat atom (<code>ftyp</code>, <code>mvhd</code>, <code>tkhd</code>, <code>colr</code>, <code>ilst</code>, hingga raw hex) lengkap dengan ekspor laporan &amp; offset <code>stco</code>/<code>co64</code> otomatis.</p>
+    </header>
+
+    <!-- Upload Area -->
+    <div class="card">
+      <label for="fileInput" id="dropzone" class="dropzone">
+        <input type="file" id="fileInput" accept=".mp4,.m4v,.mov,video/mp4,video/quicktime" />
+        <div><strong>Pilih file video MP4</strong> atau tarik &amp; lepas ke sini</div>
+        <div style="margin-top: 10px;">
+          <span class="btn-primary btn-sm" style="display: inline-block;">Buka Galeri / File Video</span>
+        </div>
+        <small>Hanya atom non-media (<code>moov</code>, <code>ftyp</code>, dll) yang dibaca ke RAM; data video (<code>mdat</code>) tidak dimuat penuh.</small>
+      </label>
+      <div id="uploadErrorBox" class="alert-banner hidden"></div>
+
+      <div id="fileInfoSection" class="hidden">
+        <div class="info-grid">
+          <div class="info-box">
+            <div class="label">Nama File</div>
+            <div class="val" id="infoName">-</div>
+          </div>
+          <div class="info-box">
+            <div class="label">Ukuran Total</div>
+            <div class="val" id="infoSize">-</div>
+          </div>
+          <div class="info-box">
+            <div class="label">Ukuran Atom moov</div>
+            <div class="val" id="infoMoov">-</div>
+          </div>
+          <div class="info-box">
+            <div class="label">Tabel Offset (stco / co64)</div>
+            <div class="val" id="infoOffsets">-</div>
+          </div>
+        </div>
+
+        <div class="atom-flow" id="atomFlow"></div>
+
+        <div class="video-preview-wrap">
+          <div class="video-preview-header">
+            <span id="previewBadge">Preview Video Asli</span>
+            <button type="button" id="btnTogglePreview" class="btn-secondary btn-sm">Sembunyikan Preview</button>
+          </div>
+          <video id="videoPreview" controls playsinline></video>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor Section -->
+    <div id="editorSection" class="hidden">
+      <div class="card">
+        <h2>
+          <span>Tag Metadata Utama (iTunes / ISO MP4)</span>
+          <button type="button" id="btnStripAll" class="btn-danger btn-sm">Hapus Semua Tag</button>
+        </h2>
+
+        <div id="standardTagsContainer"></div>
+
+        <div id="extraTagsWrapper" class="hidden" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);">
+          <h2 style="font-size: 0.94rem; margin-bottom: 10px;">Tag Teks Lainnya yang Terdeteksi</h2>
+          <div id="extraTagsContainer"></div>
+        </div>
+
+        <div class="custom-add">
+          <div class="custom-code-wrap">
+            <input type="text" id="customTagCode" maxlength="4" placeholder="4CC (mis: ©lyr)" />
+            <button type="button" id="btnInsertCopy" class="btn-secondary btn-sm" title="Sisipkan simbol ©">©</button>
+          </div>
+          <input type="text" id="customTagVal" placeholder="Nilai teks metadata..." />
+          <button type="button" id="btnAddCustom" class="btn-secondary">+ Tambah Tag</button>
+        </div>
+      </div>
+
+      <div id="preservedSection" class="card hidden">
+        <h2>Tag Non-Teks / Khusus (Dipertahankan Otomatis)</h2>
+        <div id="preservedContainer"></div>
+      </div>
+
+      <div class="card">
+        <div class="actions-bar">
+          <div style="color: var(--muted); font-size: 0.86rem;">
+            Kosongkan kolom atau klik <strong>Hapus</strong> untuk menghilangkan tag tertentu.
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btnResetAtoms" class="btn-danger btn-sm">Reset Semua Edit</button>
+            <button type="button" id="btnInspectEdited" class="btn-secondary">Analisa Struktur Hasil Edit</button>
+            <button type="button" id="btnTestOutput" class="btn-secondary">Uji Putar Hasil</button>
+            <button type="button" id="btnExport" class="btn-primary">Simpan &amp; Download MP4</button>
+          </div>
+        </div>
+        <div id="statusLog" class="log-box hidden"></div>
+      </div>
+
+      <!-- Atom Tree Inspector & Text Report -->
+      <div class="card">
+        <h2>
+          <span>Atom Tree Inspector &amp; Editor</span>
+          <span id="inspectorModeBadge" class="badge-mode">Mode: File Asli</span>
+        </h2>
+
+        <div class="inspector-toolbar">
+          <div class="toolbar-group">
+            <button type="button" id="btnExpandAll" class="btn-secondary btn-sm">Buka Semua</button>
+            <button type="button" id="btnCollapseAll" class="btn-secondary btn-sm">Tutup Semua</button>
+            <button type="button" id="btnInspectOriginal" class="btn-secondary btn-sm hidden">Lihat File Asli</button>
+          </div>
+          <div class="toolbar-group">
+            <button type="button" id="btnToggleReportText" class="btn-secondary btn-sm">Lihat Teks Laporan</button>
+            <button type="button" id="btnCopyReport" class="btn-secondary btn-sm">Salin Laporan</button>
+            <button type="button" id="btnDownloadReport" class="btn-success btn-sm">Download (.txt)</button>
+            <button type="button" id="btnDownloadJson" class="btn-success btn-sm">Download (.json)</button>
+          </div>
+        </div>
+
+        <div class="inspector-split">
+          <div id="treePanel" class="tree-panel"></div>
+          <div id="detailPanel" class="detail-panel">
+            <div style="color: var(--muted); font-size: 0.86rem;">
+              Klik atom mana saja di pohon struktur sebelah kiri untuk melihat detail field, mengedit nilai atom / raw hex, menambah sub-atom, atau mengekspor atom.
+            </div>
+          </div>
+        </div>
+
+        <div id="reportPreviewWrapper" class="hidden">
+          <textarea id="reportPreviewBox" class="report-preview" readonly spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const STANDARD_TAGS = [
+        { code: '\xA9nam', label: 'Title (Judul)', placeholder: 'Contoh: Tutorial Termux Part 1' },
+        { code: '\xA9ART', label: 'Artist (Kreator)', placeholder: 'Contoh: Nama Channel' },
+        { code: '\xA9alb', label: 'Album', placeholder: 'Contoh: Seri Edukasi' },
+        { code: '\xA9day', label: 'Year / Date', placeholder: 'Contoh: 2026 atau 2026-11-11' },
+        { code: '\xA9cmt', label: 'Comment', placeholder: 'Contoh: Catatan video...' },
+        { code: '\xA9too', label: 'Encoder (Aplikasi)', placeholder: 'Contoh: Lavf60.16.100' },
+        { code: '\xA9gen', label: 'Genre', placeholder: 'Contoh: Education' },
+        { code: 'desc',    label: 'Description', placeholder: 'Deskripsi singkat video' },
+        { code: 'cprt',    label: 'Copyright', placeholder: 'Contoh: © 2026' }
+      ];
+      const STANDARD_CODE_SET = new Set(STANDARD_TAGS.map(t => t.code));
+      const CONTAINER_TRACK_BOXES = new Set(['moov', 'trak', 'mdia', 'minf', 'stbl']);
+
+      // Daftar container ISO BMFF / QuickTime untuk parsing tree rekursif
+      const PURE_CONTAINERS = new Set([
+        'moov', 'trak', 'edts', 'mdia', 'minf', 'dinf', 'stbl', 'udta',
+        'mvex', 'moof', 'traf', 'mfra', 'tref', 'ipro', 'sinf', 'schi',
+        'wave', 'rmra', 'rmda', 'ilst', 'hnti', 'strk', 'gmhd'
+      ]);
+      const VIDEO_SAMPLE_ENTRIES = new Set([
+        'avc1', 'avc2', 'avc3', 'avc4', 'hvc1', 'hev1', 'mp4v', 'encv',
+        'vp08', 'vp09', 'av01', 's263', 'jpeg', 'mjpa', 'mjpb',
+        'apch', 'apcn', 'apcs', 'apco', 'ap4h', 'ap4x'
+      ]);
+      const AUDIO_SAMPLE_ENTRIES = new Set([
+        'mp4a', 'enca', 'ac-3', 'ec-3', 'alac', 'opus', 'fLaC',
+        'samr', 'sawb', 'lpcm', 'sowt', 'twos', 'ulaw', 'alaw'
+      ]);
+
+      const COLOUR_PRIMARIES = {
+        1: '1 (BT.709 / sRGB)',
+        4: '4 (BT.470M)',
+        5: '5 (BT.601-625 / PAL)',
+        6: '6 (BT.601-525 / NTSC)',
+        9: '9 (BT.2020 / UHD)',
+        11: '11 (DCI-P3)',
+        12: '12 (Display P3)'
+      };
+      const TRANSFER_CHARS = {
+        1: '1 (BT.709)',
+        6: '6 (BT.601)',
+        8: '8 (Linear)',
+        13: '13 (sRGB / IEC 61966-2-1)',
+        14: '14 (BT.2020 10-bit)',
+        15: '15 (BT.2020 12-bit)',
+        16: '16 (SMPTE ST 2084 / PQ HDR10)',
+        18: '18 (ARIB STD-B67 / HLG)'
+      };
+      const MATRIX_COEFFS = {
+        0: '0 (Identity / RGB)',
+        1: '1 (BT.709)',
+        5: '5 (BT.470BG)',
+        6: '6 (BT.601 / SMPTE 170M)',
+        9: '9 (BT.2020 NCL)',
+        10: '10 (BT.2020 CL)'
+      };
+      const AVC_PROFILES = {
+        66: 'Baseline',
+        77: 'Main',
+        88: 'Extended',
+        100: 'High',
+        110: 'High 10',
+        122: 'High 4:2:2',
+        244: 'High 4:4:4 Predictive'
+      };
+      const DATA_TYPES = {
+        0: 'Reserved / Binary',
+        1: 'UTF-8 Text',
+        2: 'UTF-16BE Text',
+        13: 'JPEG Image',
+        14: 'PNG Image',
+        21: 'Signed Integer (BE)',
+        22: 'Unsigned Integer (BE)',
+        23: 'Float32 (BE)',
+        24: 'Float64 (BE)',
+        27: 'BMP Image'
+      };
+
+      // State aplikasi
+      let currentFile = null;
+      let topLevelBoxes = [];
+      let workingTopBoxes = []; // [{ type, origStart, origSize, headerSize, bytes: Uint8Array|null }]
+      let moovBoxInfo = null;
+      let moovOriginalBytes = null;
+      let metaLocation = 'udta';
+      let standardValues = {};
+      let extraTextTags = [];
+      let preservedItems = [];
+      let previewObjectUrl = null;
+      let lastDownloadUrl = null;
+
+      // State Inspector
+      let inspectorTree = [];
+      let selectedTreePath = null;
+      let expandedTreePaths = new Set();
+      let inspectingEdited = false;
+      let cachedTextReport = '';
+      let cachedJsonReport = '';
+
+      // DOM Elements
+      const dropzone = document.getElementById('dropzone');
+      const fileInput = document.getElementById('fileInput');
+      const uploadErrorBox = document.getElementById('uploadErrorBox');
+      const fileInfoSection = document.getElementById('fileInfoSection');
+      const editorSection = document.getElementById('editorSection');
+      const standardTagsContainer = document.getElementById('standardTagsContainer');
+      const extraTagsWrapper = document.getElementById('extraTagsWrapper');
+      const extraTagsContainer = document.getElementById('extraTagsContainer');
+      const preservedSection = document.getElementById('preservedSection');
+      const preservedContainer = document.getElementById('preservedContainer');
+      const statusLog = document.getElementById('statusLog');
+      const videoPreview = document.getElementById('videoPreview');
+      const previewBadge = document.getElementById('previewBadge');
+      const btnTogglePreview = document.getElementById('btnTogglePreview');
+      const treePanel = document.getElementById('treePanel');
+      const detailPanel = document.getElementById('detailPanel');
+      const inspectorModeBadge = document.getElementById('inspectorModeBadge');
+      const btnInspectOriginal = document.getElementById('btnInspectOriginal');
+      const reportPreviewWrapper = document.getElementById('reportPreviewWrapper');
+      const reportPreviewBox = document.getElementById('reportPreviewBox');
+
+      const utf8Encoder = new TextEncoder();
+      const utf8Decoder = new TextDecoder('utf-8');
+
+      function readFourCC(bytes, offset) {
+        return String.fromCharCode(
+          bytes[offset],
+          bytes[offset + 1],
+          bytes[offset + 2],
+          bytes[offset + 3]
+        );
+      }
+
+      function writeFourCC(bytes, offset, str) {
+        for (let i = 0; i < 4; i++) {
+          bytes[offset + i] = (str.charCodeAt(i) || 0x20) & 0xFF;
+        }
+      }
+
+      function format4CCDisplay(code) {
+        return Array.from(code).map(ch => {
+          const c = ch.charCodeAt(0);
+          if (c === 0xA9) return '©';
+          if (c >= 0x20 && c <= 0x7E) return ch;
+          return '\\x' + c.toString(16).padStart(2, '0');
+        }).join('');
+      }
+
+      function decodeUTF16BE(bytes) {
+        let out = '';
+        for (let i = 0; i + 1 < bytes.length; i += 2) {
+          out += String.fromCharCode((bytes[i] << 8) | bytes[i + 1]);
+        }
+        return out;
+      }
+
+      function encodeUTF16BE(str) {
+        const out = new Uint8Array(str.length * 2);
+        for (let i = 0; i < str.length; i++) {
+          const code = str.charCodeAt(i);
+          out[i * 2] = (code >> 8) & 0xFF;
+          out[i * 2 + 1] = code & 0xFF;
+        }
+        return out;
+      }
+
+      function encodePackedLang(langStr) {
+        const s = (langStr || 'und').trim().toLowerCase();
+        if (!/^[a-z]{3}$/.test(s)) return 0x55C4;
+        return (((s.charCodeAt(0) - 0x60) & 0x1F) << 10) |
+               (((s.charCodeAt(1) - 0x60) & 0x1F) << 5) |
+               ((s.charCodeAt(2) - 0x60) & 0x1F);
+      }
+
+      function formatMacTimeInput(sec) {
+        if (!sec) return '';
+        const unixMs = (sec - 2082844800) * 1000;
+        const d = new Date(unixMs);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toISOString().replace('.000Z', 'Z');
+      }
+
+      function parseMacTimeInput(str, fallbackSec) {
+        const trimmed = (str || '').trim();
+        if (!trimmed) return 0;
+        const ms = Date.parse(trimmed);
+        if (Number.isNaN(ms)) return fallbackSec;
+        return Math.max(0, Math.round(ms / 1000) + 2082844800);
+      }
+
+      function parseHexString(str) {
+        const clean = (str || '').replace(/\s+/g, '');
+        if (clean.length % 2 !== 0) {
+          throw new Error('Panjang karakter Hex harus genap (kelipatan 2 karakter per byte).');
+        }
+        if (!/^[0-9a-fA-F]*$/.test(clean)) {
+          throw new Error('Terdapat karakter non-heksadesimal (hanya 0-9 dan A-F yang valid).');
+        }
+        const out = new Uint8Array(clean.length / 2);
+        for (let i = 0; i < out.length; i++) {
+          out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+        }
+        return out;
+      }
+
+      function bytesToHexSpaced(bytes) {
+        const parts = [];
+        for (let i = 0; i < bytes.length; i++) {
+          parts.push(bytes[i].toString(16).toUpperCase().padStart(2, '0'));
+        }
+        return parts.join(' ');
+      }
+
+      function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+      }
+
+      function toHexOffset(num) {
+        return '0x' + num.toString(16).toUpperCase().padStart(8, '0');
+      }
+
+      function macTimeToISO(sec) {
+        if (!sec) return '0 (tidak diset)';
+        const unixMs = (sec - 2082844800) * 1000;
+        const d = new Date(unixMs);
+        if (Number.isNaN(d.getTime())) return String(sec);
+        return d.toISOString().replace('T', ' ').replace('.000Z', ' UTC');
+      }
+
+      function formatDurationSec(duration, timescale) {
+        if (!timescale) return '0s';
+        const sec = duration / timescale;
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = (sec % 60).toFixed(3);
+        return `${sec.toFixed(3)} dtk (${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${s.padStart(6, '0')})`;
+      }
+
+      function decodePackedLang(code16) {
+        if (code16 === 0x55C4) return 'und (Undetermined)';
+        const c1 = ((code16 >> 10) & 0x1F) + 0x60;
+        const c2 = ((code16 >> 5) & 0x1F) + 0x60;
+        const c3 = (code16 & 0x1F) + 0x60;
+        const str = String.fromCharCode(c1, c2, c3);
+        if (/^[a-z]{3}$/.test(str)) return str;
+        return `0x${code16.toString(16).padStart(4, '0')}`;
+      }
+
+      function concatUint8Arrays(arrays) {
+        let total = 0;
+        for (const arr of arrays) total += arr.length;
+        const result = new Uint8Array(total);
+        let offset = 0;
+        for (const arr of arrays) {
+          result.set(arr, offset);
+          offset += arr.length;
+        }
+        return result;
+      }
+
+      function makeBox(type4CC, payload) {
+        const size = 8 + payload.length;
+        const out = new Uint8Array(size);
+        const view = new DataView(out.buffer);
+        view.setUint32(0, size, false);
+        writeFourCC(out, 4, type4CC);
+        out.set(payload, 8);
+        return out;
+      }
+
+      function readChildBoxes(bytes, start, end) {
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const boxes = [];
+        let pos = start;
+        while (pos + 8 <= end) {
+          const size32 = view.getUint32(pos, false);
+          const type = readFourCC(bytes, pos + 4);
+          let size = size32;
+          let headerSize = 8;
+
+          if (size32 === 1) {
+            if (pos + 16 > end) break;
+            size = Number(view.getBigUint64(pos + 8, false));
+            headerSize = 16;
+          } else if (size32 === 0) {
+            size = end - pos;
+          }
+
+          if (size < headerSize || pos + size > end) break;
+          boxes.push({ type, start: pos, size, headerSize });
+          pos += size;
+        }
+        return boxes;
+      }
+
+      function detectMetaHeaderSize(bytes, metaStart, metaHeaderSize, metaSize) {
+        const payloadStart = metaStart + metaHeaderSize;
+        const payloadLen = metaSize - metaHeaderSize;
+        if (payloadLen < 12) return 4;
+
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const isPrintable4CC = (s) => /^[\x20-\x7E]{4}$/.test(s);
+
+        const firstWord = view.getUint32(payloadStart, false);
+        const typeAt0 = readFourCC(bytes, payloadStart + 4);
+
+        if (payloadLen >= 12) {
+          const sizeAt4 = view.getUint32(payloadStart + 4, false);
+          const typeAt4 = readFourCC(bytes, payloadStart + 8);
+          if (firstWord < 8 && sizeAt4 >= 8 && sizeAt4 <= payloadLen - 4 && isPrintable4CC(typeAt4)) {
+            return 4;
+          }
+        }
+        if (firstWord >= 8 && firstWord <= payloadLen && isPrintable4CC(typeAt0)) {
+          return 0;
+        }
+        return 4;
+      }
+
+      async function scanTopLevelBoxes(file) {
+        const boxes = [];
+        let pos = 0;
+        while (pos + 8 <= file.size) {
+          const headerLen = Math.min(16, file.size - pos);
+          const buf = await file.slice(pos, pos + headerLen).arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          const view = new DataView(buf);
+
+          const size32 = view.getUint32(0, false);
+          const type = readFourCC(bytes, 4);
+          let size = size32;
+          let headerSize = 8;
+
+          if (size32 === 1) {
+            if (headerLen < 16) break;
+            size = Number(view.getBigUint64(8, false));
+            headerSize = 16;
+          } else if (size32 === 0) {
+            size = file.size - pos;
+          }
+
+          if (size < headerSize || pos + size > file.size) break;
+          boxes.push({ type, start: pos, size, headerSize });
+          pos += size;
+        }
+        return boxes;
+      }
+
+      function countChunkOffsetTables(moovBytes, start, end) {
+        const counts = { stcoTables: 0, stcoEntries: 0, co64Tables: 0, co64Entries: 0 };
+        const view = new DataView(moovBytes.buffer, moovBytes.byteOffset, moovBytes.byteLength);
+
+        function walk(s, e) {
+          for (const box of readChildBoxes(moovBytes, s, e)) {
+            if (CONTAINER_TRACK_BOXES.has(box.type)) {
+              walk(box.start + box.headerSize, box.start + box.size);
+            } else if (box.type === 'stco' && box.size >= box.headerSize + 8) {
+              counts.stcoTables++;
+              counts.stcoEntries += view.getUint32(box.start + box.headerSize + 4, false);
+            } else if (box.type === 'co64' && box.size >= box.headerSize + 8) {
+              counts.co64Tables++;
+              counts.co64Entries += view.getUint32(box.start + box.headerSize + 4, false);
+            }
+          }
+        }
+        walk(start, end);
+        return counts;
+      }
+
+      function parseMetadataFromMoov(moovBytes, moovHeaderSize) {
+        standardValues = {};
+        extraTextTags = [];
+        preservedItems = [];
+        metaLocation = 'udta';
+
+        const moovChildren = readChildBoxes(moovBytes, moovHeaderSize, moovBytes.length);
+        let metaBox = null;
+
+        const udtaBox = moovChildren.find(b => b.type === 'udta');
+        if (udtaBox) {
+          const udtaChildren = readChildBoxes(moovBytes, udtaBox.start + udtaBox.headerSize, udtaBox.start + udtaBox.size);
+          metaBox = udtaChildren.find(b => b.type === 'meta') || null;
+        }
+
+        if (!metaBox) {
+          const directMeta = moovChildren.find(b => b.type === 'meta');
+          if (directMeta) {
+            metaBox = directMeta;
+            metaLocation = 'moov';
+          }
+        }
+
+        if (!metaBox) return;
+
+        const metaExtraHdr = detectMetaHeaderSize(moovBytes, metaBox.start, metaBox.headerSize, metaBox.size);
+        const metaChildren = readChildBoxes(
+          moovBytes,
+          metaBox.start + metaBox.headerSize + metaExtraHdr,
+          metaBox.start + metaBox.size
+        );
+
+        const ilstBox = metaChildren.find(b => b.type === 'ilst');
+        if (!ilstBox) return;
+
+        const ilstItems = readChildBoxes(moovBytes, ilstBox.start + ilstBox.headerSize, ilstBox.start + ilstBox.size);
+        const view = new DataView(moovBytes.buffer, moovBytes.byteOffset, moovBytes.byteLength);
+
+        for (const item of ilstItems) {
+          const rawItemBytes = moovBytes.slice(item.start, item.start + item.size);
+
+          if (item.type === '----') {
+            preservedItems.push({ code: item.type, rawBytes: rawItemBytes });
+            continue;
+          }
+
+          const itemChildren = readChildBoxes(moovBytes, item.start + item.headerSize, item.start + item.size);
+          const dataBoxes = itemChildren.filter(c => c.type === 'data');
+
+          if (dataBoxes.length === 1 && itemChildren.length === 1 && dataBoxes[0].size >= dataBoxes[0].headerSize + 8) {
+            const db = dataBoxes[0];
+            const payloadStart = db.start + db.headerSize;
+            const typeIndicator = view.getUint32(payloadStart, false);
+            const valueBytes = moovBytes.subarray(payloadStart + 8, db.start + db.size);
+
+            if (typeIndicator === 1 || typeIndicator === 2) {
+              const text = typeIndicator === 1 ? utf8Decoder.decode(valueBytes) : decodeUTF16BE(valueBytes);
+              if (STANDARD_CODE_SET.has(item.type)) {
+                standardValues[item.type] = text;
+              } else {
+                extraTextTags.push({ code: item.type, value: text });
+              }
+              continue;
+            }
+          }
+
+          preservedItems.push({ code: item.type, rawBytes: rawItemBytes });
+        }
+      }
+
+      function buildStandardHdlrBox() {
+        const payload = new Uint8Array(25);
+        writeFourCC(payload, 8, 'mdir');
+        writeFourCC(payload, 12, 'appl');
+        return makeBox('hdlr', payload);
+      }
+
+      function buildTextIlstItem(code4CC, text) {
+        const textBytes = utf8Encoder.encode(text);
+        const dataPayload = new Uint8Array(8 + textBytes.length);
+        const view = new DataView(dataPayload.buffer);
+        view.setUint32(0, 1, false);
+        view.setUint32(4, 0, false);
+        dataPayload.set(textBytes, 8);
+        const dataBox = makeBox('data', dataPayload);
+        return makeBox(code4CC, dataBox);
+      }
+
+      function buildNewIlstBox() {
+        const chunks = [];
+
+        for (const tag of STANDARD_TAGS) {
+          const val = standardValues[tag.code];
+          if (typeof val === 'string' && val.length > 0) {
+            chunks.push(buildTextIlstItem(tag.code, val));
+          }
+        }
+
+        for (const extra of extraTextTags) {
+          if (extra.code.length === 4 && extra.value.length > 0) {
+            chunks.push(buildTextIlstItem(extra.code, extra.value));
+          }
+        }
+
+        for (const item of preservedItems) {
+          chunks.push(item.rawBytes);
+        }
+
+        if (chunks.length === 0) return null;
+        return makeBox('ilst', concatUint8Arrays(chunks));
+      }
+
+      function buildUpdatedMetaBox(existingMetaBytes, newIlstBox) {
+        if (!existingMetaBytes) {
+          if (!newIlstBox) return null;
+          const fullBoxPrefix = new Uint8Array(4);
+          return makeBox('meta', concatUint8Arrays([fullBoxPrefix, buildStandardHdlrBox(), newIlstBox]));
+        }
+
+        const view = new DataView(existingMetaBytes.buffer, existingMetaBytes.byteOffset, existingMetaBytes.byteLength);
+        const size32 = view.getUint32(0, false);
+        const headerSize = size32 === 1 ? 16 : 8;
+        const extraHdr = detectMetaHeaderSize(existingMetaBytes, 0, headerSize, existingMetaBytes.length);
+        const children = readChildBoxes(existingMetaBytes, headerSize + extraHdr, existingMetaBytes.length);
+
+        const keptChildren = [];
+        let hasHdlr = false;
+        let hasOtherNonHdlr = false;
+
+        for (const ch of children) {
+          if (ch.type === 'ilst') continue;
+          if (ch.type === 'hdlr') hasHdlr = true;
+          else hasOtherNonHdlr = true;
+          keptChildren.push(existingMetaBytes.slice(ch.start, ch.start + ch.size));
+        }
+
+        if (!newIlstBox && !hasOtherNonHdlr) {
+          return null;
+        }
+
+        const finalChildren = [];
+        if (newIlstBox && !hasHdlr) {
+          finalChildren.push(buildStandardHdlrBox());
+        }
+        finalChildren.push(...keptChildren);
+        if (newIlstBox) {
+          finalChildren.push(newIlstBox);
+        }
+
+        const fullBoxPrefix = new Uint8Array(4);
+        return makeBox('meta', concatUint8Arrays([fullBoxPrefix, ...finalChildren]));
+      }
+
+      function rebuildMoovBytes(moovBytes, moovHeaderSize) {
+        const newIlstBox = buildNewIlstBox();
+        const moovChildren = readChildBoxes(moovBytes, moovHeaderSize, moovBytes.length);
+        const outChildren = [];
+        let metaHandled = false;
+
+        for (const ch of moovChildren) {
+          if (metaLocation === 'udta' && ch.type === 'udta') {
+            metaHandled = true;
+            const udtaChildren = readChildBoxes(moovBytes, ch.start + ch.headerSize, ch.start + ch.size);
+            const newUdtaChildren = [];
+            let foundMetaInUdta = false;
+
+            for (const uch of udtaChildren) {
+              if (uch.type === 'meta') {
+                foundMetaInUdta = true;
+                const oldMeta = moovBytes.slice(uch.start, uch.start + uch.size);
+                const updatedMeta = buildUpdatedMetaBox(oldMeta, newIlstBox);
+                if (updatedMeta) newUdtaChildren.push(updatedMeta);
+              } else {
+                newUdtaChildren.push(moovBytes.slice(uch.start, uch.start + uch.size));
+              }
+            }
+
+            if (!foundMetaInUdta && newIlstBox) {
+              const createdMeta = buildUpdatedMetaBox(null, newIlstBox);
+              if (createdMeta) newUdtaChildren.push(createdMeta);
+            }
+
+            if (newUdtaChildren.length > 0) {
+              outChildren.push(makeBox('udta', concatUint8Arrays(newUdtaChildren)));
+            }
+          } else if (metaLocation === 'moov' && ch.type === 'meta') {
+            metaHandled = true;
+            const oldMeta = moovBytes.slice(ch.start, ch.start + ch.size);
+            const updatedMeta = buildUpdatedMetaBox(oldMeta, newIlstBox);
+            if (updatedMeta) outChildren.push(updatedMeta);
+          } else {
+            outChildren.push(moovBytes.slice(ch.start, ch.start + ch.size));
+          }
+        }
+
+        if (!metaHandled && newIlstBox) {
+          const createdMeta = buildUpdatedMetaBox(null, newIlstBox);
+          if (createdMeta) {
+            outChildren.push(makeBox('udta', createdMeta));
+          }
+        }
+
+        return makeBox('moov', concatUint8Arrays(outChildren));
+      }
+
+      function patchChunkOffsetsWithMap(newMoovBytes, topBoxesMap) {
+        const view = new DataView(newMoovBytes.buffer, newMoovBytes.byteOffset, newMoovBytes.byteLength);
+        let stcoPatched = 0;
+        let co64Patched = 0;
+
+        function resolveShift(origOffsetBig) {
+          for (const entry of topBoxesMap) {
+            const startBig = BigInt(entry.origStart);
+            const endBig = BigInt(entry.origStart + entry.origSize);
+            if (origOffsetBig >= startBig && origOffsetBig < endBig) {
+              return BigInt(entry.shift);
+            }
+          }
+          // Fallback ke box terakhir sebelum/pada offset jika menunjuk tepat di batas akhir
+          for (let i = topBoxesMap.length - 1; i >= 0; i--) {
+            if (origOffsetBig >= BigInt(topBoxesMap[i].origStart)) {
+              return BigInt(topBoxesMap[i].shift);
+            }
+          }
+          return 0n;
+        }
+
+        function walk(start, end) {
+          for (const box of readChildBoxes(newMoovBytes, start, end)) {
+            if (CONTAINER_TRACK_BOXES.has(box.type)) {
+              walk(box.start + box.headerSize, box.start + box.size);
+            } else if (box.type === 'stco' && box.size >= box.headerSize + 8) {
+              const countOffset = box.start + box.headerSize + 4;
+              const entryCount = view.getUint32(countOffset, false);
+              for (let i = 0; i < entryCount; i++) {
+                const pos = countOffset + 4 + i * 4;
+                if (pos + 4 > box.start + box.size) break;
+                const oldVal = BigInt(view.getUint32(pos, false));
+                const shift = resolveShift(oldVal);
+                if (shift !== 0n) {
+                  const newVal = oldVal + shift;
+                  if (newVal < 0n || newVal > 0xFFFFFFFFn) {
+                    throw new Error('Offset stco melebihi batas 32-bit (4 GB).');
+                  }
+                  view.setUint32(pos, Number(newVal), false);
+                  stcoPatched++;
+                }
+              }
+            } else if (box.type === 'co64' && box.size >= box.headerSize + 8) {
+              const countOffset = box.start + box.headerSize + 4;
+              const entryCount = view.getUint32(countOffset, false);
+              for (let i = 0; i < entryCount; i++) {
+                const pos = countOffset + 4 + i * 8;
+                if (pos + 8 > box.start + box.size) break;
+                const oldVal = view.getBigUint64(pos, false);
+                const shift = resolveShift(oldVal);
+                if (shift !== 0n) {
+                  const newVal = oldVal + shift;
+                  if (newVal < 0n) {
+                    throw new Error('Offset co64 menjadi negatif.');
+                  }
+                  view.setBigUint64(pos, newVal, false);
+                  co64Patched++;
+                }
+              }
+            }
+          }
+        }
+
+        walk(8, newMoovBytes.length);
+        return { stcoPatched, co64Patched };
+      }
+
+      function buildOutputData() {
+        let cursor = 0;
+        const layout = workingTopBoxes.map((wb) => {
+          const curSize = wb.bytes ? wb.bytes.length : wb.origSize;
+          const newStart = cursor;
+          const shift = newStart - wb.origStart;
+          cursor += curSize;
+          return {
+            type: wb.type,
+            origStart: wb.origStart,
+            origSize: wb.origSize,
+            newStart,
+            curSize,
+            shift,
+            bytes: wb.bytes
+          };
+        });
+
+        const moovLayout = layout.find(l => l.type === 'moov');
+        if (!moovLayout || !moovLayout.bytes) {
+          throw new Error('Atom "moov" tidak ditemukan pada data kerja.');
+        }
+
+        const patchedMoovBytes = new Uint8Array(moovLayout.bytes);
+        const patchResult = patchChunkOffsetsWithMap(patchedMoovBytes, layout);
+        const delta = patchedMoovBytes.length - moovLayout.origSize;
+
+        const blobParts = layout.map((l) => {
+          if (l.type === 'moov') return patchedMoovBytes;
+          if (l.bytes) return l.bytes;
+          return currentFile.slice(l.origStart, l.origStart + l.origSize);
+        });
+
+        const finalBlob = new Blob(blobParts, {
+          type: currentFile.type || 'video/mp4'
+        });
+
+        return { finalBlob, newMoovBytes: patchedMoovBytes, layout, delta, patchResult };
+      }
+
+      // =========================================================================
+      // ATOM-LEVEL HIERARCHY EDITOR & SYNC HELPERS
+      // =========================================================================
+
+      async function initializeWorkingTopBoxes() {
+        workingTopBoxes = [];
+        for (const top of topLevelBoxes) {
+          if (top.type === 'moov') {
+            workingTopBoxes.push({
+              type: 'moov',
+              origStart: top.start,
+              origSize: top.size,
+              headerSize: top.headerSize,
+              bytes: new Uint8Array(moovOriginalBytes)
+            });
+          } else if (top.type !== 'mdat' && top.size <= 8 * 1024 * 1024) {
+            const buf = await currentFile.slice(top.start, top.start + top.size).arrayBuffer();
+            workingTopBoxes.push({
+              type: top.type,
+              origStart: top.start,
+              origSize: top.size,
+              headerSize: top.headerSize,
+              bytes: new Uint8Array(buf)
+            });
+          } else {
+            workingTopBoxes.push({
+              type: top.type,
+              origStart: top.start,
+              origSize: top.size,
+              headerSize: top.headerSize,
+              bytes: null
+            });
+          }
+        }
+      }
+
+      function getWorkingMoovEntry() {
+        return workingTopBoxes.find(wb => wb.type === 'moov') || null;
+      }
+
+      function syncFormTagsToWorkingMoov() {
+        const moovEntry = getWorkingMoovEntry();
+        if (!moovEntry || !moovEntry.bytes) return;
+        moovEntry.bytes = rebuildMoovBytes(moovEntry.bytes, moovEntry.headerSize);
+      }
+
+      function getExpectedContainerChildOffset(bytes, boxStart, headerSize, boxSize, type, parentType) {
+        const existing = getChildDataStartOffset(bytes, boxStart, headerSize, boxSize, type, parentType);
+        if (existing >= 0) return existing;
+
+        if (PURE_CONTAINERS.has(type) || parentType === 'ilst') return boxStart + headerSize;
+        if (type === 'meta') {
+          const extra = detectMetaHeaderSize(bytes, boxStart, headerSize, boxSize);
+          return boxStart + headerSize + extra;
+        }
+        if (type === 'dref' || type === 'stsd') return boxStart + headerSize + 8;
+        if (parentType === 'stsd') {
+          if (VIDEO_SAMPLE_ENTRIES.has(type)) return boxStart + headerSize + 78;
+          if (AUDIO_SAMPLE_ENTRIES.has(type) && boxStart + headerSize + 10 <= boxStart + boxSize) {
+            const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            const ver = view.getUint16(boxStart + headerSize + 8, false);
+            return boxStart + headerSize + (ver === 2 ? 64 : ver === 1 ? 44 : 28);
+          }
+        }
+        return -1;
+      }
+
+      function replaceBoxAtTreePath(treePath, replacerFn) {
+        const parts = treePath.split('/').map(Number);
+        const topIdx = parts[0];
+        const childIndices = parts.slice(1);
+        const topEntry = workingTopBoxes[topIdx];
+
+        if (!topEntry || !topEntry.bytes) {
+          throw new Error('Box ini tidak dimuat ke memori (seperti mdat) sehingga tidak dapat dimodifikasi langsung.');
+        }
+
+        const rootBytes = topEntry.bytes;
+        const rootHeaderSize = (new DataView(rootBytes.buffer, rootBytes.byteOffset, rootBytes.byteLength)).getUint32(0, false) === 1 ? 16 : 8;
+        const stack = [{
+          type: topEntry.type,
+          parentType: null,
+          boxStart: 0,
+          boxSize: rootBytes.length,
+          headerSize: rootHeaderSize
+        }];
+
+        for (const cIdx of childIndices) {
+          const cur = stack[stack.length - 1];
+          const childStart = getChildDataStartOffset(rootBytes, cur.boxStart, cur.headerSize, cur.boxSize, cur.type, cur.parentType);
+          if (childStart < 0) throw new Error('Container anak tidak ditemukan.');
+          const children = readChildBoxes(rootBytes, childStart, cur.boxStart + cur.boxSize);
+          const chosen = children[cIdx];
+          if (!chosen) throw new Error('Indeks atom anak tidak valid.');
+          stack.push({
+            type: chosen.type,
+            parentType: cur.type,
+            boxStart: chosen.start,
+            boxSize: chosen.size,
+            headerSize: chosen.headerSize
+          });
+        }
+
+        const target = stack[stack.length - 1];
+        const targetBytes = rootBytes.slice(target.boxStart, target.boxStart + target.boxSize);
+        let newChildBytes = replacerFn(targetBytes, target);
+
+        for (let lvl = stack.length - 2; lvl >= 0; lvl--) {
+          const parent = stack[lvl];
+          const child = stack[lvl + 1];
+          const prefix = new Uint8Array(rootBytes.subarray(parent.boxStart + parent.headerSize, child.boxStart));
+          const suffix = rootBytes.subarray(child.boxStart + child.boxSize, parent.boxStart + parent.boxSize);
+
+          // Perbarui entry_count bila child di dalam stsd atau dref dihapus
+          if ((parent.type === 'stsd' || parent.type === 'dref') && newChildBytes === null && prefix.length >= 8) {
+            const pView = new DataView(prefix.buffer, prefix.byteOffset, prefix.byteLength);
+            const curCount = pView.getUint32(4, false);
+            if (curCount > 0) pView.setUint32(4, curCount - 1, false);
+          }
+
+          const payload = newChildBytes
+            ? concatUint8Arrays([prefix, newChildBytes, suffix])
+            : concatUint8Arrays([prefix, suffix]);
+
+          newChildBytes = makeBox(parent.type, payload);
+        }
+
+        if (newChildBytes === null) {
+          if (topEntry.type === 'ftyp' || topEntry.type === 'moov' || topEntry.type === 'mdat') {
+            throw new Error(`Box utama "${topEntry.type}" tidak boleh dihapus.`);
+          }
+          workingTopBoxes.splice(topIdx, 1);
+        } else {
+          topEntry.bytes = newChildBytes;
+        }
+
+        // Sinkronkan kembali form iTunes metadata bila moov berubah
+        if (topEntry.type === 'moov') {
+          parseMetadataFromMoov(topEntry.bytes, 8);
+          renderEditorUI();
+        }
+      }
+
+      function addChildBoxAtTreePath(treePath, newBoxBytes) {
+        replaceBoxAtTreePath(treePath, (targetBytes, target) => {
+          const dataStart = getExpectedContainerChildOffset(
+            targetBytes,
+            0,
+            target.headerSize,
+            targetBytes.length,
+            target.type,
+            target.parentType
+          );
+          if (dataStart < 0) {
+            throw new Error(`Atom "${format4CCDisplay(target.type)}" bukan container yang mendukung penambahan sub-atom.`);
+          }
+          const prefix = new Uint8Array(targetBytes.subarray(target.headerSize));
+          if ((target.type === 'stsd' || target.type === 'dref') && prefix.length >= 8) {
+            const pView = new DataView(prefix.buffer, prefix.byteOffset, prefix.byteLength);
+            pView.setUint32(4, pView.getUint32(4, false) + 1, false);
+          }
+          return makeBox(target.type, concatUint8Arrays([prefix, newBoxBytes]));
+        });
+      }
+
+      // =========================================================================
+      // ATOM TREE INSPECTOR & DECODER (REKURSIF)
+      // =========================================================================
+
+      function getChildDataStartOffset(bytes, boxStart, headerSize, boxSize, type, parentType) {
+        const absEnd = boxStart + boxSize;
+        let childStart = -1;
+
+        if (PURE_CONTAINERS.has(type) || parentType === 'ilst') {
+          childStart = boxStart + headerSize;
+        } else if (type === 'meta') {
+          const extra = detectMetaHeaderSize(bytes, boxStart, headerSize, boxSize);
+          childStart = boxStart + headerSize + extra;
+        } else if (type === 'dref' || type === 'stsd') {
+          childStart = boxStart + headerSize + 8;
+        } else if (parentType === 'stsd') {
+          if (VIDEO_SAMPLE_ENTRIES.has(type)) {
+            childStart = boxStart + headerSize + 78;
+          } else if (AUDIO_SAMPLE_ENTRIES.has(type)) {
+            if (boxStart + headerSize + 10 <= absEnd) {
+              const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+              const ver = view.getUint16(boxStart + headerSize + 8, false);
+              const audioHdr = ver === 2 ? 64 : ver === 1 ? 44 : 28;
+              childStart = boxStart + headerSize + audioHdr;
+            }
+          } else if (type === 'wvtt') {
+            childStart = boxStart + headerSize;
+          }
+        }
+
+        if (childStart < 0 || childStart + 8 > absEnd) return -1;
+
+        // Validasi agar tidak salah menganggap payload biner biasa sebagai sub-atom
+        const testChildren = readChildBoxes(bytes, childStart, absEnd);
+        if (testChildren.length === 0) return -1;
+        const last = testChildren[testChildren.length - 1];
+        if (absEnd - (last.start + last.size) > 4) return -1;
+
+        return childStart;
+      }
+
+      function decodeAtomDetails(type, bytes, boxStart, headerSize, boxSize, parentType) {
+        const fields = [];
+        let summary = '';
+        const pStart = boxStart + headerSize;
+        const pEnd = boxStart + boxSize;
+        const pLen = pEnd - pStart;
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+        try {
+          if (type === 'ftyp' && pLen >= 8) {
+            const major = readFourCC(bytes, pStart);
+            const minor = view.getUint32(pStart + 4, false);
+            const compat = [];
+            for (let p = pStart + 8; p + 4 <= pEnd; p += 4) {
+              compat.push(readFourCC(bytes, p));
+            }
+            fields.push(['Major Brand', format4CCDisplay(major)]);
+            fields.push(['Minor Version', String(minor)]);
+            fields.push(['Compatible Brands', compat.map(format4CCDisplay).join(', ') || '-']);
+            summary = `${format4CCDisplay(major)} (${compat.map(format4CCDisplay).join(', ')})`;
+          } else if (type === 'mvhd' && pLen >= 24) {
+            const ver = bytes[pStart];
+            let creation, mod, timescale, duration, ratePos;
+            if (ver === 1 && pLen >= 36) {
+              creation = Number(view.getBigUint64(pStart + 4, false));
+              mod = Number(view.getBigUint64(pStart + 12, false));
+              timescale = view.getUint32(pStart + 20, false);
+              duration = Number(view.getBigUint64(pStart + 24, false));
+              ratePos = pStart + 32;
+            } else {
+              creation = view.getUint32(pStart + 4, false);
+              mod = view.getUint32(pStart + 8, false);
+              timescale = view.getUint32(pStart + 12, false);
+              duration = view.getUint32(pStart + 16, false);
+              ratePos = pStart + 20;
+            }
+            const rate = view.getInt32(ratePos, false) / 65536;
+            const vol = view.getInt16(ratePos + 4, false) / 256;
+            const nextTrackId = ratePos + 76 <= pEnd ? view.getUint32(ratePos + 72, false) : '-';
+            fields.push(['Version', String(ver)]);
+            fields.push(['Creation Time', macTimeToISO(creation)]);
+            fields.push(['Modification Time', macTimeToISO(mod)]);
+            fields.push(['Timescale', `${timescale.toLocaleString()} units/dtk`]);
+            fields.push(['Duration', `${duration.toLocaleString()} (${formatDurationSec(duration, timescale)})`]);
+            fields.push(['Playback Rate / Volume', `${rate}x / ${vol}`]);
+            fields.push(['Next Track ID', String(nextTrackId)]);
+            summary = formatDurationSec(duration, timescale);
+          } else if (type === 'tkhd' && pLen >= 84) {
+            const ver = bytes[pStart];
+            const flags = (bytes[pStart + 1] << 16) | (bytes[pStart + 2] << 8) | bytes[pStart + 3];
+            let creation, mod, trackId, duration, restPos;
+            if (ver === 1 && pLen >= 96) {
+              creation = Number(view.getBigUint64(pStart + 4, false));
+              mod = Number(view.getBigUint64(pStart + 12, false));
+              trackId = view.getUint32(pStart + 20, false);
+              duration = Number(view.getBigUint64(pStart + 28, false));
+              restPos = pStart + 36;
+            } else {
+              creation = view.getUint32(pStart + 4, false);
+              mod = view.getUint32(pStart + 8, false);
+              trackId = view.getUint32(pStart + 12, false);
+              duration = view.getUint32(pStart + 20, false);
+              restPos = pStart + 24;
+            }
+            const layer = view.getInt16(restPos + 8, false);
+            const altGroup = view.getInt16(restPos + 10, false);
+            const vol = view.getInt16(restPos + 12, false) / 256;
+            const a = view.getInt32(restPos + 16, false) / 65536;
+            const b = view.getInt32(restPos + 20, false) / 65536;
+            const c = view.getInt32(restPos + 28, false) / 65536;
+            const d = view.getInt32(restPos + 32, false) / 65536;
+            const width = view.getUint32(restPos + 52, false) / 65536;
+            const height = view.getUint32(restPos + 56, false) / 65536;
+
+            let rot = 'Custom';
+            if (a === 1 && b === 0 && c === 0 && d === 1) rot = '0° (Normal)';
+            else if (a === 0 && b === 1 && c === -1 && d === 0) rot = '90°';
+            else if (a === -1 && b === 0 && c === 0 && d === -1) rot = '180°';
+            else if (a === 0 && b === -1 && c === 1 && d === 0) rot = '270°';
+
+            const flagNotes = [];
+            if (flags & 1) flagNotes.push('Enabled');
+            if (flags & 2) flagNotes.push('InMovie');
+            if (flags & 4) flagNotes.push('InPreview');
+
+            fields.push(['Track ID', String(trackId)]);
+            fields.push(['Flags', `0x${flags.toString(16)} (${flagNotes.join(', ') || 'None'})`]);
+            fields.push(['Creation Time', macTimeToISO(creation)]);
+            fields.push(['Modification Time', macTimeToISO(mod)]);
+            fields.push(['Dimensions', `${width} × ${height}`]);
+            fields.push(['Rotation / Matrix', `${rot} [a=${a}, b=${b}, c=${c}, d=${d}]`]);
+            fields.push(['Volume / Layer / AltGroup', `${vol} / ${layer} / ${altGroup}`]);
+            fields.push(['Duration (movie timescale)', duration.toLocaleString()]);
+            summary = `Track #${trackId}` + (width > 0 ? ` (${width}×${height})` : ' (Audio/Non-Video)');
+          } else if (type === 'mdhd' && pLen >= 24) {
+            const ver = bytes[pStart];
+            let creation, mod, timescale, duration, langOffset;
+            if (ver === 1 && pLen >= 36) {
+              creation = Number(view.getBigUint64(pStart + 4, false));
+              mod = Number(view.getBigUint64(pStart + 12, false));
+              timescale = view.getUint32(pStart + 20, false);
+              duration = Number(view.getBigUint64(pStart + 24, false));
+              langOffset = pStart + 32;
+            } else {
+              creation = view.getUint32(pStart + 4, false);
+              mod = view.getUint32(pStart + 8, false);
+              timescale = view.getUint32(pStart + 12, false);
+              duration = view.getUint32(pStart + 16, false);
+              langOffset = pStart + 20;
+            }
+            const langCode = view.getUint16(langOffset, false);
+            const lang = decodePackedLang(langCode);
+            fields.push(['Version', String(ver)]);
+            fields.push(['Creation Time', macTimeToISO(creation)]);
+            fields.push(['Modification Time', macTimeToISO(mod)]);
+            fields.push(['Timescale', `${timescale.toLocaleString()} Hz/ticks`]);
+            fields.push(['Duration', `${duration.toLocaleString()} (${formatDurationSec(duration, timescale)})`]);
+            fields.push(['Language', lang]);
+            summary = `${timescale.toLocaleString()} Hz, lang=${lang}`;
+          } else if (type === 'hdlr' && pLen >= 24) {
+            const preDefined = view.getUint32(pStart + 4, false);
+            const handlerType = readFourCC(bytes, pStart + 8);
+            let nameBytes = bytes.subarray(pStart + 24, pEnd);
+            if (nameBytes.length > 0 && nameBytes[nameBytes.length - 1] === 0) {
+              nameBytes = nameBytes.subarray(0, nameBytes.length - 1);
+            }
+            const name = utf8Decoder.decode(nameBytes).replace(/\0/g, '');
+            fields.push(['Pre-defined', preDefined ? format4CCDisplay(readFourCC(bytes, pStart + 4)) : '0']);
+            fields.push(['Handler Type', format4CCDisplay(handlerType)]);
+            fields.push(['Handler Name', name || '(kosong)']);
+            summary = `[${format4CCDisplay(handlerType)}] ${name}`;
+          } else if (type === 'elst' && pLen >= 8) {
+            const ver = bytes[pStart];
+            const count = view.getUint32(pStart + 4, false);
+            fields.push(['Version', String(ver)]);
+            fields.push(['Entry Count', String(count)]);
+            let pos = pStart + 8;
+            for (let i = 0; i < Math.min(count, 8); i++) {
+              if (ver === 1 && pos + 20 <= pEnd) {
+                const segDur = view.getBigUint64(pos, false);
+                const medTime = view.getBigInt64(pos + 8, false);
+                const rate = view.getInt16(pos + 16, false) + '.' + view.getUint16(pos + 18, false);
+                fields.push([`Entry [${i}]`, `segment_duration=${segDur}, media_time=${medTime}, rate=${rate}`]);
+                pos += 20;
+              } else if (ver === 0 && pos + 12 <= pEnd) {
+                const segDur = view.getUint32(pos, false);
+                const medTime = view.getInt32(pos + 4, false);
+                const rate = view.getInt16(pos + 8, false) + '.' + view.getUint16(pos + 10, false);
+                fields.push([`Entry [${i}]`, `segment_duration=${segDur}, media_time=${medTime}, rate=${rate}`]);
+                pos += 12;
+              }
+            }
+            summary = `${count} edit segment`;
+          } else if (type === 'vmhd' && pLen >= 12) {
+            const mode = view.getUint16(pStart + 4, false);
+            const r = view.getUint16(pStart + 6, false);
+            const g = view.getUint16(pStart + 8, false);
+            const b = view.getUint16(pStart + 10, false);
+            fields.push(['Graphics Mode', String(mode)]);
+            fields.push(['Opcolor (RGB)', `${r}, ${g}, ${b}`]);
+            summary = `mode=${mode}`;
+          } else if (type === 'smhd' && pLen >= 8) {
+            const bal = view.getInt16(pStart + 4, false) / 256;
+            fields.push(['Audio Balance', String(bal)]);
+            summary = `balance=${bal}`;
+          } else if ((type === 'dref' || type === 'stsd') && pLen >= 8) {
+            const count = view.getUint32(pStart + 4, false);
+            fields.push(['Entry Count', String(count)]);
+            summary = `${count} entri`;
+          } else if (type === 'url ' && pLen >= 4) {
+            const flags = (bytes[pStart + 1] << 16) | (bytes[pStart + 2] << 8) | bytes[pStart + 3];
+            const selfContained = (flags & 1) === 1;
+            const loc = pLen > 4 ? utf8Decoder.decode(bytes.subarray(pStart + 4, pEnd)).replace(/\0/g, '') : '';
+            fields.push(['Flags', `0x${flags.toString(16)} (${selfContained ? 'Self-contained / Di file ini' : 'External URL'})`]);
+            if (loc) fields.push(['Location', loc]);
+            summary = selfContained ? 'Self-contained' : loc;
+          } else if (parentType === 'stsd' && VIDEO_SAMPLE_ENTRIES.has(type) && pLen >= 78) {
+            const dataRefIdx = view.getUint16(pStart + 6, false);
+            const width = view.getUint16(pStart + 24, false);
+            const height = view.getUint16(pStart + 26, false);
+            const hRes = view.getUint32(pStart + 28, false) / 65536;
+            const vRes = view.getUint32(pStart + 32, false) / 65536;
+            const frameCount = view.getUint16(pStart + 40, false);
+            const compLen = Math.min(31, bytes[pStart + 42]);
+            const compName = utf8Decoder.decode(bytes.subarray(pStart + 43, pStart + 43 + compLen));
+            const depth = view.getUint16(pStart + 74, false);
+            fields.push(['Codec FourCC', format4CCDisplay(type)]);
+            fields.push(['Resolution', `${width} × ${height}`]);
+            fields.push(['DPI (Horiz × Vert)', `${hRes} × ${vRes}`]);
+            fields.push(['Compressor Name', compName || '(kosong)']);
+            fields.push(['Depth / Frame Count', `${depth}-bit / ${frameCount}`]);
+            fields.push(['Data Reference Index', String(dataRefIdx)]);
+            summary = `${width}×${height}` + (compName ? `, ${compName}` : '');
+          } else if (parentType === 'stsd' && AUDIO_SAMPLE_ENTRIES.has(type) && pLen >= 28) {
+            const dataRefIdx = view.getUint16(pStart + 6, false);
+            const ver = view.getUint16(pStart + 8, false);
+            const channels = view.getUint16(pStart + 16, false);
+            const sampleSize = view.getUint16(pStart + 18, false);
+            const sampleRate = view.getUint32(pStart + 24, false) / 65536;
+            fields.push(['Codec FourCC', format4CCDisplay(type)]);
+            fields.push(['Entry Version', String(ver)]);
+            fields.push(['Channels', String(channels)]);
+            fields.push(['Sample Size', `${sampleSize}-bit`]);
+            fields.push(['Sample Rate', `${sampleRate} Hz`]);
+            fields.push(['Data Reference Index', String(dataRefIdx)]);
+            summary = `${channels}ch, ${sampleRate} Hz, ${sampleSize}-bit`;
+          } else if (type === 'avcC' && pLen >= 7) {
+            const cfgVer = bytes[pStart];
+            const profile = bytes[pStart + 1];
+            const compat = bytes[pStart + 2];
+            const level = bytes[pStart + 3];
+            const nalLen = (bytes[pStart + 4] & 0x03) + 1;
+            const numSPS = bytes[pStart + 5] & 0x1F;
+            fields.push(['Configuration Version', String(cfgVer)]);
+            fields.push(['AVC Profile', `${AVC_PROFILES[profile] || 'Unknown'} (${profile} / 0x${profile.toString(16)})`]);
+            fields.push(['Profile Compatibility', `0x${compat.toString(16).padStart(2, '0')}`]);
+            fields.push(['AVC Level', `${(level / 10).toFixed(1)} (${level})`]);
+            fields.push(['NALU Length Size', `${nalLen} bytes`]);
+            fields.push(['SPS Count', String(numSPS)]);
+            summary = `${AVC_PROFILES[profile] || 'Profile ' + profile} @ L${(level / 10).toFixed(1)}`;
+          } else if (type === 'hvcC' && pLen >= 13) {
+            const cfgVer = bytes[pStart];
+            const profileByte = bytes[pStart + 1];
+            const profileSpace = (profileByte >> 6) & 0x03;
+            const tierFlag = (profileByte >> 5) & 0x01;
+            const profileIdc = profileByte & 0x1F;
+            const levelIdc = bytes[pStart + 12];
+            fields.push(['Configuration Version', String(cfgVer)]);
+            fields.push(['Profile Space / IDC', `${profileSpace} / ${profileIdc}`]);
+            fields.push(['Tier', tierFlag ? 'High Tier' : 'Main Tier']);
+            fields.push(['Level IDC', `${(levelIdc / 30).toFixed(1)} (${levelIdc})`]);
+            summary = `HEVC Profile ${profileIdc}, Level ${(levelIdc / 30).toFixed(1)}`;
+          } else if (type === 'colr' && pLen >= 4) {
+            const colorType = readFourCC(bytes, pStart);
+            fields.push(['Colour Type', format4CCDisplay(colorType)]);
+            if ((colorType === 'nclx' || colorType === 'nclc') && pLen >= 10) {
+              const prim = view.getUint16(pStart + 4, false);
+              const trans = view.getUint16(pStart + 6, false);
+              const mat = view.getUint16(pStart + 8, false);
+              fields.push(['Colour Primaries', COLOUR_PRIMARIES[prim] || String(prim)]);
+              fields.push(['Transfer Characteristics', TRANSFER_CHARS[trans] || String(trans)]);
+              fields.push(['Matrix Coefficients', MATRIX_COEFFS[mat] || String(mat)]);
+              if (colorType === 'nclx' && pLen >= 11) {
+                const fullRange = (bytes[pStart + 10] & 0x80) !== 0;
+                fields.push(['Full Range Flag', fullRange ? '1 (Full / PC Range)' : '0 (Limited / TV Range)']);
+              }
+              summary = `${colorType}: P=${prim}, T=${trans}, M=${mat}`;
+            } else {
+              summary = `${colorType} (${pLen - 4} bytes profile)`;
+            }
+          } else if (type === 'pasp' && pLen >= 8) {
+            const h = view.getUint32(pStart, false);
+            const v = view.getUint32(pStart + 4, false);
+            fields.push(['Pixel Aspect Ratio', `${h}:${v}`]);
+            summary = `${h}:${v}`;
+          } else if (type === 'esds' && pLen >= 10) {
+            fields.push(['FullBox Version/Flags', `0x${view.getUint32(pStart, false).toString(16)}`]);
+            // Cari tag 0x04 (DecoderConfigDescriptor) secara aman
+            let objType = null;
+            for (let i = pStart + 4; i + 2 < pEnd; i++) {
+              if (bytes[i] === 0x04) {
+                let ptr = i + 1;
+                while (ptr < pEnd && (bytes[ptr] & 0x80)) ptr++;
+                ptr++;
+                if (ptr + 13 <= pEnd) {
+                  objType = bytes[ptr];
+                  const maxBr = view.getUint32(ptr + 5, false);
+                  const avgBr = view.getUint32(ptr + 9, false);
+                  const objNames = { 0x40: 'MPEG-4 Audio (AAC)', 0x20: 'MPEG-4 Visual', 0x6B: 'MP3 (MPEG-1 Audio)', 0x69: 'MPEG-2 Audio' };
+                  fields.push(['Object Type Indication', `${objNames[objType] || 'Unknown'} (0x${objType.toString(16)})`]);
+                  fields.push(['Max / Avg Bitrate', `${Math.round(maxBr / 1000)} kbps / ${Math.round(avgBr / 1000)} kbps`]);
+                  summary = `${objNames[objType] || '0x' + objType.toString(16)}, avg ${Math.round(avgBr / 1000)} kbps`;
+                }
+                break;
+              }
+            }
+            if (objType === null) summary = `${pLen} bytes ES descriptor`;
+          } else if (type === 'stts' && pLen >= 8) {
+            const count = view.getUint32(pStart + 4, false);
+            let totalSamples = 0;
+            const samplesPreview = [];
+            for (let i = 0; i < count; i++) {
+              const pos = pStart + 8 + i * 8;
+              if (pos + 8 > pEnd) break;
+              const sc = view.getUint32(pos, false);
+              const sd = view.getUint32(pos + 4, false);
+              totalSamples += sc;
+              if (i < 5) samplesPreview.push(`${sc}×delta(${sd})`);
+            }
+            fields.push(['Entry Count', count.toLocaleString()]);
+            fields.push(['Total Samples', totalSamples.toLocaleString()]);
+            fields.push(['Sample Delta (awal)', samplesPreview.join(', ') + (count > 5 ? ', ...' : '')]);
+            summary = `${count.toLocaleString()} entri (${totalSamples.toLocaleString()} samples)`;
+          } else if (type === 'ctts' && pLen >= 8) {
+            const ver = bytes[pStart];
+            const count = view.getUint32(pStart + 4, false);
+            const preview = [];
+            for (let i = 0; i < Math.min(count, 5); i++) {
+              const pos = pStart + 8 + i * 8;
+              if (pos + 8 > pEnd) break;
+              const sc = view.getUint32(pos, false);
+              const off = ver === 1 ? view.getInt32(pos + 4, false) : view.getUint32(pos + 4, false);
+              preview.push(`${sc}×offset(${off})`);
+            }
+            fields.push(['Version', String(ver)]);
+            fields.push(['Entry Count', count.toLocaleString()]);
+            fields.push(['Composition Offsets (awal)', preview.join(', ') + (count > 5 ? ', ...' : '')]);
+            summary = `${count.toLocaleString()} entri`;
+          } else if (type === 'stss' && pLen >= 8) {
+            const count = view.getUint32(pStart + 4, false);
+            const preview = [];
+            for (let i = 0; i < Math.min(count, 8); i++) {
+              const pos = pStart + 8 + i * 4;
+              if (pos + 4 > pEnd) break;
+              preview.push(view.getUint32(pos, false));
+            }
+            fields.push(['Sync Samples (Keyframe)', count.toLocaleString()]);
+            fields.push(['Sample Numbers (awal)', preview.join(', ') + (count > 8 ? ', ...' : '')]);
+            summary = `${count.toLocaleString()} keyframes`;
+          } else if (type === 'stsc' && pLen >= 8) {
+            const count = view.getUint32(pStart + 4, false);
+            const preview = [];
+            for (let i = 0; i < Math.min(count, 5); i++) {
+              const pos = pStart + 8 + i * 12;
+              if (pos + 12 > pEnd) break;
+              const firstChunk = view.getUint32(pos, false);
+              const spc = view.getUint32(pos + 4, false);
+              const sdi = view.getUint32(pos + 8, false);
+              preview.push(`[chunk=${firstChunk}, samples=${spc}, desc=${sdi}]`);
+            }
+            fields.push(['Entry Count', count.toLocaleString()]);
+            fields.push(['Entries (awal)', preview.join(' ') + (count > 5 ? ' ...' : '')]);
+            summary = `${count.toLocaleString()} entri`;
+          } else if (type === 'stsz' && pLen >= 12) {
+            const constSize = view.getUint32(pStart + 4, false);
+            const sampleCount = view.getUint32(pStart + 8, false);
+            fields.push(['Constant Sample Size', constSize === 0 ? '0 (Variable)' : `${constSize} bytes`]);
+            fields.push(['Sample Count', sampleCount.toLocaleString()]);
+            if (constSize === 0 && sampleCount > 0) {
+              let min = Infinity, max = 0, sum = 0, readCount = 0;
+              for (let i = 0; i < sampleCount; i++) {
+                const pos = pStart + 12 + i * 4;
+                if (pos + 4 > pEnd) break;
+                const sz = view.getUint32(pos, false);
+                if (sz < min) min = sz;
+                if (sz > max) max = sz;
+                sum += sz;
+                readCount++;
+              }
+              if (readCount > 0) {
+                fields.push(['Min / Avg / Max Size', `${min} B / ${Math.round(sum / readCount)} B / ${max} B`]);
+              }
+            }
+            summary = `${sampleCount.toLocaleString()} samples`;
+          } else if (type === 'stco' && pLen >= 8) {
+            const count = view.getUint32(pStart + 4, false);
+            const preview = [];
+            for (let i = 0; i < Math.min(count, 6); i++) {
+              const pos = pStart + 8 + i * 4;
+              if (pos + 4 > pEnd) break;
+              preview.push(view.getUint32(pos, false).toLocaleString());
+            }
+            const lastPos = count > 0 && pStart + 8 + (count - 1) * 4 + 4 <= pEnd
+              ? view.getUint32(pStart + 8 + (count - 1) * 4, false)
+              : null;
+            fields.push(['Chunk Count (32-bit)', count.toLocaleString()]);
+            fields.push(['Offsets Awal', preview.join(', ') + (count > 6 ? ', ...' : '')]);
+            if (lastPos !== null) fields.push(['Offset Chunk Terakhir', `${lastPos.toLocaleString()} (${toHexOffset(lastPos)})`]);
+            summary = `${count.toLocaleString()} chunks (32-bit)`;
+          } else if (type === 'co64' && pLen >= 8) {
+            const count = view.getUint32(pStart + 4, false);
+            const preview = [];
+            for (let i = 0; i < Math.min(count, 5); i++) {
+              const pos = pStart + 8 + i * 8;
+              if (pos + 8 > pEnd) break;
+              preview.push(view.getBigUint64(pos, false).toString());
+            }
+            const lastPos = count > 0 && pStart + 8 + (count - 1) * 8 + 8 <= pEnd
+              ? view.getBigUint64(pStart + 8 + (count - 1) * 8, false)
+              : null;
+            fields.push(['Chunk Count (64-bit)', count.toLocaleString()]);
+            fields.push(['Offsets Awal', preview.join(', ') + (count > 5 ? ', ...' : '')]);
+            if (lastPos !== null) fields.push(['Offset Chunk Terakhir', `${lastPos.toLocaleString()} (0x${lastPos.toString(16).toUpperCase()})`]);
+            summary = `${count.toLocaleString()} chunks (64-bit)`;
+          } else if (type === 'data' && pLen >= 8) {
+            const typeInd = view.getUint32(pStart, false);
+            const locale = view.getUint32(pStart + 4, false);
+            const valBytes = bytes.subarray(pStart + 8, pEnd);
+            fields.push(['Data Type', `${typeInd} (${DATA_TYPES[typeInd] || 'Custom'})`]);
+            fields.push(['Locale', String(locale)]);
+            if (typeInd === 1) {
+              const txt = utf8Decoder.decode(valBytes);
+              fields.push(['Value (UTF-8)', txt]);
+              summary = `"${txt}"`;
+            } else if (typeInd === 2) {
+              const txt = decodeUTF16BE(valBytes);
+              fields.push(['Value (UTF-16BE)', txt]);
+              summary = `"${txt}"`;
+            } else if ((typeInd === 21 || typeInd === 22) && valBytes.length > 0 && valBytes.length <= 8) {
+              let num = 0n;
+              for (const b of valBytes) num = (num << 8n) | BigInt(b);
+              fields.push(['Integer Value', num.toString()]);
+              summary = num.toString();
+            } else {
+              fields.push(['Payload Size', `${valBytes.length.toLocaleString()} bytes`]);
+              summary = `${DATA_TYPES[typeInd] || 'Binary'} (${formatBytes(valBytes.length)})`;
+            }
+          } else if ((type === 'mean' || type === 'name') && pLen >= 4) {
+            const txt = utf8Decoder.decode(bytes.subarray(pStart + 4, pEnd));
+            fields.push(['Value', txt]);
+            summary = txt;
+          } else if (type === 'free' || type === 'skip' || type === 'wide') {
+            fields.push(['Padding Size', `${pLen.toLocaleString()} bytes`]);
+            summary = `Padding (${formatBytes(pLen)})`;
+          }
+        } catch (err) {
+          fields.push(['Decode Notice', err.message]);
+        }
+
+        return { fields, summary };
+      }
+
+      async function buildInspectorTree(topBoxes, moovBytesOverride, layoutOverride = null) {
+        const rootNodes = [];
+
+        function buildFromBuffer(bytes, boxStart, boxSize, headerSize, type, parentType, absDisplayOffset, sourceMeta, treePath) {
+          const { fields, summary } = decodeAtomDetails(type, bytes, boxStart, headerSize, boxSize, parentType);
+
+          const node = {
+            id: treePath,
+            treePath,
+            type,
+            parentType,
+            absOffset: absDisplayOffset,
+            size: boxSize,
+            headerSize,
+            fields,
+            summary,
+            children: [],
+            sourceMeta
+          };
+
+          const childStart = getChildDataStartOffset(bytes, boxStart, headerSize, boxSize, type, parentType);
+          if (childStart >= 0) {
+            const childBoxes = readChildBoxes(bytes, childStart, boxStart + boxSize);
+            childBoxes.forEach((ch, cIdx) => {
+              const childAbs = absDisplayOffset + (ch.start - boxStart);
+              const childSource = {
+                kind: sourceMeta.kind,
+                bytesRef: bytes,
+                localOffset: ch.start,
+                fileOffset: sourceMeta.fileOffset >= 0 ? sourceMeta.fileOffset + (ch.start - boxStart) : -1
+              };
+              node.children.push(
+                buildFromBuffer(bytes, ch.start, ch.size, ch.headerSize, ch.type, type, childAbs, childSource, `${treePath}/${cIdx}`)
+              );
+            });
+          }
+
+          return node;
+        }
+
+        if (layoutOverride) {
+          layoutOverride.forEach((item, topIdx) => {
+            const treePath = String(topIdx);
+            if (item.bytes) {
+              const useBytes = item.type === 'moov' && moovBytesOverride ? moovBytesOverride : item.bytes;
+              const hdrSize = (new DataView(useBytes.buffer, useBytes.byteOffset, useBytes.byteLength)).getUint32(0, false) === 1 ? 16 : 8;
+              rootNodes.push(
+                buildFromBuffer(
+                  useBytes,
+                  0,
+                  useBytes.length,
+                  hdrSize,
+                  item.type,
+                  null,
+                  item.newStart,
+                  { kind: 'mem', bytesRef: useBytes, localOffset: 0, fileOffset: -1 },
+                  treePath
+                )
+              );
+            } else {
+              const isMdat = item.type === 'mdat';
+              rootNodes.push({
+                id: treePath,
+                treePath,
+                type: item.type,
+                parentType: null,
+                absOffset: item.newStart,
+                size: item.curSize,
+                headerSize: 8,
+                fields: [
+                  ['Status Muat', isMdat ? 'Data Media (tidak dimuat penuh ke RAM)' : 'Box besar (> 8 MB)'],
+                  ['Rentang Offset', `${item.newStart.toLocaleString()} – ${(item.newStart + item.curSize - 1).toLocaleString()}`],
+                  ['Ukuran Total', `${item.curSize.toLocaleString()} bytes`]
+                ],
+                summary: isMdat ? 'Media Data (Video/Audio Stream)' : 'Large Box',
+                children: [],
+                sourceMeta: { kind: 'file', bytesRef: null, localOffset: 0, fileOffset: item.origStart }
+              });
+            }
+          });
+          return rootNodes;
+        }
+
+        for (let topIdx = 0; topIdx < topBoxes.length; topIdx++) {
+          const top = topBoxes[topIdx];
+          const treePath = String(topIdx);
+
+          if (top.type === 'moov') {
+            const mBytes = moovBytesOverride || moovOriginalBytes;
+            rootNodes.push(
+              buildFromBuffer(
+                mBytes,
+                0,
+                mBytes.length,
+                top.headerSize,
+                'moov',
+                null,
+                top.start,
+                { kind: 'moov', bytesRef: mBytes, localOffset: 0, fileOffset: -1 },
+                treePath
+              )
+            );
+          } else if (top.type !== 'mdat' && top.size <= 8 * 1024 * 1024) {
+            const buf = await currentFile.slice(top.start, top.start + top.size).arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            rootNodes.push(
+              buildFromBuffer(
+                bytes,
+                0,
+                bytes.length,
+                top.headerSize,
+                top.type,
+                null,
+                top.start,
+                { kind: 'mem', bytesRef: bytes, localOffset: 0, fileOffset: top.start },
+                treePath
+              )
+            );
+          } else {
+            const isMdat = top.type === 'mdat';
+            rootNodes.push({
+              id: treePath,
+              treePath,
+              type: top.type,
+              parentType: null,
+              absOffset: top.start,
+              size: top.size,
+              headerSize: top.headerSize,
+              fields: [
+                ['Status Muat', isMdat ? 'Data Media (tidak dimuat penuh ke RAM)' : 'Box besar (> 8 MB)'],
+                ['Rentang Offset', `${top.start.toLocaleString()} – ${(top.start + top.size - 1).toLocaleString()}`],
+                ['Ukuran Payload', `${(top.size - top.headerSize).toLocaleString()} bytes`]
+              ],
+              summary: isMdat ? 'Media Data (Video/Audio Stream)' : 'Large Box',
+              children: [],
+              sourceMeta: { kind: 'file', bytesRef: null, localOffset: 0, fileOffset: top.start }
+            });
+          }
+        }
+
+        return rootNodes;
+      }
+
+      async function getNodeHexSample(node, maxBytes = 512) {
+        const readLen = Math.min(maxBytes, node.size);
+        if (node.sourceMeta.bytesRef) {
+          const start = node.sourceMeta.localOffset;
+          return node.sourceMeta.bytesRef.subarray(start, start + readLen);
+        }
+        if (node.sourceMeta.fileOffset >= 0 && currentFile) {
+          const buf = await currentFile.slice(node.sourceMeta.fileOffset, node.sourceMeta.fileOffset + readLen).arrayBuffer();
+          return new Uint8Array(buf);
+        }
+        return new Uint8Array(0);
+      }
+
+      function formatHexDump(bytes, baseOffset) {
+        const lines = [];
+        for (let i = 0; i < bytes.length; i += 16) {
+          const addr = (baseOffset + i).toString(16).toUpperCase().padStart(8, '0');
+          let hexPart = '';
+          let asciiPart = '';
+          for (let j = 0; j < 16; j++) {
+            if (i + j < bytes.length) {
+              const b = bytes[i + j];
+              hexPart += b.toString(16).toUpperCase().padStart(2, '0') + ' ';
+              asciiPart += (b >= 0x20 && b <= 0x7E) ? String.fromCharCode(b) : '.';
+            } else {
+              hexPart += '   ';
+            }
+            if (j === 7) hexPart += ' ';
+          }
+          lines.push(`${addr}  ${hexPart} |${asciiPart}|`);
+        }
+        return lines.join('\n');
+      }
+
+      function findNodePath(nodes, targetId, trail = []) {
+        for (const n of nodes) {
+          const nextTrail = [...trail, format4CCDisplay(n.type)];
+          if (n.id === targetId) return nextTrail;
+          if (n.children.length > 0) {
+            const found = findNodePath(n.children, targetId, nextTrail);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+
+      function findNodeByTreePath(nodes, targetPath) {
+        for (const n of nodes) {
+          if (n.treePath === targetPath) return n;
+          if (n.children.length > 0) {
+            const found = findNodeByTreePath(n.children, targetPath);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+
+      function getBoxCategoryClass(node) {
+        if (node.type === 'mdat') return 'media-box';
+        if (node.type === 'meta' || node.type === 'ilst' || node.type === 'udta' || node.parentType === 'ilst') {
+          return 'meta-box';
+        }
+        if (node.children.length > 0) return 'container-box';
+        return '';
+      }
+
+      function renderTreePanel() {
+        treePanel.innerHTML = '';
+
+        function renderNodes(nodes, container) {
+          for (const node of nodes) {
+            const hasChildren = node.children.length > 0;
+            const isExpanded = expandedTreePaths.has(node.treePath);
+
+            const row = document.createElement('div');
+            row.className = 'tree-node-row' + (selectedTreePath === node.treePath ? ' selected' : '');
+
+            const caret = document.createElement('span');
+            caret.className = 'tree-caret';
+            caret.textContent = hasChildren ? (isExpanded ? '▼' : '▶') : '•';
+
+            const codeBadge = document.createElement('span');
+            codeBadge.className = 'tree-4cc ' + getBoxCategoryClass(node);
+            codeBadge.textContent = format4CCDisplay(node.type);
+
+            const summary = document.createElement('span');
+            summary.className = 'tree-summary';
+            summary.textContent = node.summary ? node.summary : (hasChildren ? `${node.children.length} sub-atom` : '');
+
+            const sizeSpan = document.createElement('span');
+            sizeSpan.className = 'tree-size';
+            sizeSpan.textContent = formatBytes(node.size);
+
+            row.append(caret, codeBadge, summary, sizeSpan);
+
+            row.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (hasChildren && (e.target === caret || selectedTreePath === node.treePath)) {
+                if (isExpanded) expandedTreePaths.delete(node.treePath);
+                else expandedTreePaths.add(node.treePath);
+              } else if (hasChildren && !isExpanded) {
+                expandedTreePaths.add(node.treePath);
+              }
+              selectedTreePath = node.treePath;
+              renderTreePanel();
+              renderDetailPanel(node);
+            });
+
+            container.appendChild(row);
+
+            if (hasChildren && isExpanded) {
+              const childWrap = document.createElement('div');
+              childWrap.className = 'tree-children';
+              renderNodes(node.children, childWrap);
+              container.appendChild(childWrap);
+            }
+          }
+        }
+
+        renderNodes(inspectorTree, treePanel);
+      }
+
+      function isContainerCapableNode(node) {
+        if (PURE_CONTAINERS.has(node.type) || node.parentType === 'ilst' || node.type === 'meta' || node.type === 'stsd' || node.type === 'dref') {
+          return true;
+        }
+        if (node.parentType === 'stsd' && (VIDEO_SAMPLE_ENTRIES.has(node.type) || AUDIO_SAMPLE_ENTRIES.has(node.type))) {
+          return true;
+        }
+        return false;
+      }
+
+      function buildPresetSubAtom(presetKey, node, custom4CC, customValue, customMode) {
+        if (presetKey === 'free') {
+          return makeBox('free', new Uint8Array(8));
+        }
+        if (presetKey === 'pasp') {
+          const p = new Uint8Array(8);
+          const v = new DataView(p.buffer);
+          v.setUint32(0, 1, false);
+          v.setUint32(4, 1, false);
+          return makeBox('pasp', p);
+        }
+        if (presetKey === 'colr_bt709') {
+          const p = new Uint8Array(11);
+          const v = new DataView(p.buffer);
+          writeFourCC(p, 0, 'nclx');
+          v.setUint16(4, 1, false); // BT.709
+          v.setUint16(6, 1, false); // BT.709
+          v.setUint16(8, 1, false); // BT.709
+          p[10] = 0x00; // Limited range
+          return makeBox('colr', p);
+        }
+        if (presetKey === 'ilst_title') {
+          return buildTextIlstItem('\xA9nam', 'Judul Baru');
+        }
+        if (custom4CC.length !== 4) {
+          throw new Error('Kode 4CC sub-atom harus tepat 4 karakter.');
+        }
+        if (customMode === 'hex') {
+          return makeBox(custom4CC, parseHexString(customValue));
+        }
+        if (node.type === 'ilst') {
+          return buildTextIlstItem(custom4CC, customValue || 'Nilai');
+        }
+        return makeBox(custom4CC, utf8Encoder.encode(customValue || ''));
+      }
+
+      function buildStructuredAtomEditor(node, applyCallback) {
+        const ref = node.sourceMeta && node.sourceMeta.bytesRef;
+        if (!ref) return null;
+
+        const boxBytes = ref.subarray(node.sourceMeta.localOffset, node.sourceMeta.localOffset + node.size);
+        const pStart = node.headerSize;
+        const pLen = boxBytes.length - pStart;
+        const view = new DataView(boxBytes.buffer, boxBytes.byteOffset, boxBytes.byteLength);
+        const t = node.type;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'atom-editor-box';
+
+        const header = document.createElement('div');
+        header.className = 'atom-editor-title';
+        header.innerHTML = `<span>Edit Field Terstruktur [${format4CCDisplay(t)}]</span>`;
+        wrapper.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'atom-editor-grid';
+
+        const addField = (label, el) => {
+          const div = document.createElement('div');
+          div.className = 'atom-field';
+          const lbl = document.createElement('label');
+          lbl.textContent = label;
+          div.append(lbl, el);
+          grid.appendChild(div);
+          return el;
+        };
+
+        const makeInput = (type, value, step = null) => {
+          const inp = document.createElement('input');
+          inp.type = type;
+          inp.value = value;
+          if (step) inp.step = step;
+          return inp;
+        };
+
+        const makeSelect = (options, currentVal) => {
+          const sel = document.createElement('select');
+          for (const [val, txt] of options) {
+            const opt = document.createElement('option');
+            opt.value = String(val);
+            opt.textContent = txt;
+            if (String(val) === String(currentVal)) opt.selected = true;
+            sel.appendChild(opt);
+          }
+          return sel;
+        };
+
+        let onSave = null;
+
+        if (t === 'ftyp' && pLen >= 8) {
+          const major = readFourCC(boxBytes, pStart);
+          const minor = view.getUint32(pStart + 4, false);
+          const compat = [];
+          for (let p = pStart + 8; p + 4 <= boxBytes.length; p += 4) {
+            compat.push(readFourCC(boxBytes, p));
+          }
+          const inpMajor = addField('Major Brand (4CC)', makeInput('text', major));
+          inpMajor.maxLength = 4;
+          const inpMinor = addField('Minor Version', makeInput('number', minor));
+          const inpCompat = addField('Compatible Brands (pisah koma)', makeInput('text', compat.join(', ')));
+
+          onSave = () => {
+            if (inpMajor.value.length !== 4) throw new Error('Major Brand harus tepat 4 karakter.');
+            const brands = inpCompat.value.split(',').map(s => s.trim()).filter(Boolean);
+            for (const b of brands) {
+              if (b.length !== 4) throw new Error(`Compatible brand "${b}" harus tepat 4 karakter.`);
+            }
+            const payload = new Uint8Array(8 + brands.length * 4);
+            const pv = new DataView(payload.buffer);
+            writeFourCC(payload, 0, inpMajor.value);
+            pv.setUint32(4, Math.max(0, Number(inpMinor.value) || 0), false);
+            brands.forEach((b, i) => writeFourCC(payload, 8 + i * 4, b));
+            return makeBox('ftyp', payload);
+          };
+        } else if (t === 'mvhd' && pLen >= 24) {
+          const ver = boxBytes[pStart];
+          const isV1 = ver === 1 && pLen >= 36;
+          const creation = isV1 ? Number(view.getBigUint64(pStart + 4, false)) : view.getUint32(pStart + 4, false);
+          const mod = isV1 ? Number(view.getBigUint64(pStart + 12, false)) : view.getUint32(pStart + 8, false);
+          const timescale = view.getUint32(isV1 ? pStart + 20 : pStart + 12, false);
+          const duration = isV1 ? Number(view.getBigUint64(pStart + 24, false)) : view.getUint32(pStart + 16, false);
+          const ratePos = isV1 ? pStart + 32 : pStart + 20;
+          const rate = view.getInt32(ratePos, false) / 65536;
+          const vol = view.getInt16(ratePos + 4, false) / 256;
+
+          const inpTs = addField('Timescale (units/detik)', makeInput('number', timescale));
+          const inpDur = addField('Duration (units)', makeInput('number', duration));
+          const inpRate = addField('Playback Rate', makeInput('number', rate, '0.01'));
+          const inpVol = addField('Volume (0.0 - 1.0)', makeInput('number', vol, '0.01'));
+          const inpCreate = addField('Creation Time (ISO / kosong=0)', makeInput('text', formatMacTimeInput(creation)));
+          const inpMod = addField('Modification Time (ISO / kosong=0)', makeInput('text', formatMacTimeInput(mod)));
+
+          onSave = () => {
+            const outPayload = new Uint8Array(boxBytes.subarray(pStart));
+            const ov = new DataView(outPayload.buffer);
+            const newC = parseMacTimeInput(inpCreate.value, creation);
+            const newM = parseMacTimeInput(inpMod.value, mod);
+            const newTs = Math.max(1, Number(inpTs.value) || timescale);
+            const newDur = Math.max(0, Number(inpDur.value) || 0);
+            const newRate = Math.round((Number(inpRate.value) || 1) * 65536);
+            const newVol = Math.round((Number(inpVol.value) || 0) * 256);
+
+            if (isV1) {
+              ov.setBigUint64(4, BigInt(newC), false);
+              ov.setBigUint64(12, BigInt(newM), false);
+              ov.setUint32(20, newTs, false);
+              ov.setBigUint64(24, BigInt(newDur), false);
+              ov.setInt32(32, newRate, false);
+              ov.setInt16(36, newVol, false);
+            } else {
+              ov.setUint32(4, newC, false);
+              ov.setUint32(8, newM, false);
+              ov.setUint32(12, newTs, false);
+              ov.setUint32(16, newDur, false);
+              ov.setInt32(20, newRate, false);
+              ov.setInt16(24, newVol, false);
+            }
+            return makeBox('mvhd', outPayload);
+          };
+        } else if (t === 'tkhd' && pLen >= 84) {
+          const ver = boxBytes[pStart];
+          const isV1 = ver === 1 && pLen >= 96;
+          const flags = (boxBytes[pStart + 1] << 16) | (boxBytes[pStart + 2] << 8) | boxBytes[pStart + 3];
+          const trackId = view.getUint32(isV1 ? pStart + 20 : pStart + 12, false);
+          const restPos = isV1 ? pStart + 36 : pStart + 24;
+          const layer = view.getInt16(restPos + 8, false);
+          const vol = view.getInt16(restPos + 12, false) / 256;
+          const a = view.getInt32(restPos + 16, false) / 65536;
+          const b = view.getInt32(restPos + 20, false) / 65536;
+          const c = view.getInt32(restPos + 28, false) / 65536;
+          const d = view.getInt32(restPos + 32, false) / 65536;
+          const width = view.getUint32(restPos + 52, false) / 65536;
+          const height = view.getUint32(restPos + 56, false) / 65536;
+
+          let curRot = 'keep';
+          if (a === 1 && b === 0 && c === 0 && d === 1) curRot = '0';
+          else if (a === 0 && b === 1 && c === -1 && d === 0) curRot = '90';
+          else if (a === -1 && b === 0 && c === 0 && d === -1) curRot = '180';
+          else if (a === 0 && b === -1 && c === 1 && d === 0) curRot = '270';
+
+          const inpId = addField('Track ID', makeInput('number', trackId));
+          const inpW = addField('Display Width (px)', makeInput('number', width, '0.01'));
+          const inpH = addField('Display Height (px)', makeInput('number', height, '0.01'));
+          const selRot = addField('Rotasi Matrix', makeSelect([
+            ['0', '0° (Normal)'],
+            ['90', '90° (Portrait)'],
+            ['180', '180° (Terbalik)'],
+            ['270', '270° (Portrait Balik)'],
+            ...(curRot === 'keep' ? [['keep', 'Pertahankan Matrix Custom']] : [])
+          ], curRot));
+          const inpVol = addField('Volume', makeInput('number', vol, '0.01'));
+          const inpLayer = addField('Layer', makeInput('number', layer));
+
+          const checks = document.createElement('div');
+          checks.className = 'atom-checks';
+          const chkEn = document.createElement('input'); chkEn.type = 'checkbox'; chkEn.checked = (flags & 1) !== 0;
+          const chkMov = document.createElement('input'); chkMov.type = 'checkbox'; chkMov.checked = (flags & 2) !== 0;
+          const chkPrev = document.createElement('input'); chkPrev.type = 'checkbox'; chkPrev.checked = (flags & 4) !== 0;
+          const mkChk = (el, txt) => { const l = document.createElement('label'); l.append(el, document.createTextNode(txt)); return l; };
+          checks.append(mkChk(chkEn, 'Track Enabled'), mkChk(chkMov, 'In Movie'), mkChk(chkPrev, 'In Preview'));
+          wrapper.appendChild(grid);
+          wrapper.appendChild(checks);
+
+          onSave = () => {
+            const outPayload = new Uint8Array(boxBytes.subarray(pStart));
+            const ov = new DataView(outPayload.buffer);
+            const newFlags = (chkEn.checked ? 1 : 0) | (chkMov.checked ? 2 : 0) | (chkPrev.checked ? 4 : 0);
+            outPayload[1] = (newFlags >> 16) & 0xFF;
+            outPayload[2] = (newFlags >> 8) & 0xFF;
+            outPayload[3] = newFlags & 0xFF;
+
+            ov.setUint32(isV1 ? 20 : 12, Math.max(1, Number(inpId.value) || 1), false);
+            const rOff = restPos - pStart;
+            ov.setInt16(rOff + 8, Number(inpLayer.value) || 0, false);
+            ov.setInt16(rOff + 12, Math.round((Number(inpVol.value) || 0) * 256), false);
+
+            const rotMap = { '0': [1, 0, 0, 1], '90': [0, 1, -1, 0], '180': [-1, 0, 0, -1], '270': [0, -1, 1, 0] };
+            if (rotMap[selRot.value]) {
+              const [na, nb, nc, nd] = rotMap[selRot.value];
+              ov.setInt32(rOff + 16, na * 65536, false);
+              ov.setInt32(rOff + 20, nb * 65536, false);
+              ov.setInt32(rOff + 28, nc * 65536, false);
+              ov.setInt32(rOff + 32, nd * 65536, false);
+            }
+            ov.setUint32(rOff + 52, Math.max(0, Math.round((Number(inpW.value) || 0) * 65536)), false);
+            ov.setUint32(rOff + 56, Math.max(0, Math.round((Number(inpH.value) || 0) * 65536)), false);
+            return makeBox('tkhd', outPayload);
+          };
+        } else if (t === 'mdhd' && pLen >= 24) {
+          const ver = boxBytes[pStart];
+          const isV1 = ver === 1 && pLen >= 36;
+          const timescale = view.getUint32(isV1 ? pStart + 20 : pStart + 12, false);
+          const duration = isV1 ? Number(view.getBigUint64(pStart + 24, false)) : view.getUint32(pStart + 16, false);
+          const langOffset = isV1 ? pStart + 32 : pStart + 20;
+          const lang = decodePackedLang(view.getUint16(langOffset, false)).split(' ')[0];
+
+          const inpTs = addField('Timescale (Hz/ticks)', makeInput('number', timescale));
+          const inpDur = addField('Duration (ticks)', makeInput('number', duration));
+          const inpLang = addField('Language (3 huruf, mis: ind, eng, und)', makeInput('text', lang));
+          inpLang.maxLength = 3;
+
+          onSave = () => {
+            const outPayload = new Uint8Array(boxBytes.subarray(pStart));
+            const ov = new DataView(outPayload.buffer);
+            const newTs = Math.max(1, Number(inpTs.value) || timescale);
+            const newDur = Math.max(0, Number(inpDur.value) || 0);
+            if (isV1) {
+              ov.setUint32(20, newTs, false);
+              ov.setBigUint64(24, BigInt(newDur), false);
+              ov.setUint16(32, encodePackedLang(inpLang.value), false);
+            } else {
+              ov.setUint32(12, newTs, false);
+              ov.setUint32(16, newDur, false);
+              ov.setUint16(20, encodePackedLang(inpLang.value), false);
+            }
+            return makeBox('mdhd', outPayload);
+          };
+        } else if (t === 'hdlr' && pLen >= 24) {
+          const handlerType = readFourCC(boxBytes, pStart + 8);
+          let nameBytes = boxBytes.subarray(pStart + 24);
+          if (nameBytes.length > 0 && nameBytes[nameBytes.length - 1] === 0) {
+            nameBytes = nameBytes.subarray(0, nameBytes.length - 1);
+          }
+          const name = utf8Decoder.decode(nameBytes).replace(/\0/g, '');
+          const inpType = addField('Handler Type (4CC)', makeInput('text', handlerType));
+          inpType.maxLength = 4;
+          const inpName = addField('Handler Name', makeInput('text', name));
+
+          onSave = () => {
+            if (inpType.value.length !== 4) throw new Error('Handler Type harus tepat 4 karakter.');
+            const nameEnc = utf8Encoder.encode(inpName.value);
+            const outPayload = new Uint8Array(24 + nameEnc.length + 1);
+            outPayload.set(boxBytes.subarray(pStart, pStart + 24), 0);
+            writeFourCC(outPayload, 8, inpType.value);
+            outPayload.set(nameEnc, 24);
+            return makeBox('hdlr', outPayload);
+          };
+        } else if (t === 'colr' && pLen >= 10) {
+          const colorType = readFourCC(boxBytes, pStart);
+          if (colorType === 'nclx' || colorType === 'nclc') {
+            const prim = view.getUint16(pStart + 4, false);
+            const trans = view.getUint16(pStart + 6, false);
+            const mat = view.getUint16(pStart + 8, false);
+            const fullRange = colorType === 'nclx' && pLen >= 11 ? (boxBytes[pStart + 10] & 0x80) !== 0 : false;
+
+            const selType = addField('Colour Type', makeSelect([['nclx', 'nclx (ISO MP4)'], ['nclc', 'nclc (QuickTime)']], colorType));
+            const selPrim = addField('Primaries', makeSelect([
+              ...Object.entries(COLOUR_PRIMARIES),
+              ...(COLOUR_PRIMARIES[prim] ? [] : [[prim, `${prim} (Custom)`]])
+            ], prim));
+            const selTrans = addField('Transfer', makeSelect([
+              ...Object.entries(TRANSFER_CHARS),
+              ...(TRANSFER_CHARS[trans] ? [] : [[trans, `${trans} (Custom)`]])
+            ], trans));
+            const selMat = addField('Matrix', makeSelect([
+              ...Object.entries(MATRIX_COEFFS),
+              ...(MATRIX_COEFFS[mat] ? [] : [[mat, `${mat} (Custom)`]])
+            ], mat));
+
+            const checks = document.createElement('div');
+            checks.className = 'atom-checks';
+            const chkFull = document.createElement('input');
+            chkFull.type = 'checkbox';
+            chkFull.checked = fullRange;
+            const lbl = document.createElement('label');
+            lbl.append(chkFull, document.createTextNode('Full Range (PC 0-255, hanya berlaku untuk nclx)'));
+            checks.appendChild(lbl);
+            wrapper.appendChild(grid);
+            wrapper.appendChild(checks);
+
+            onSave = () => {
+              const isNclx = selType.value === 'nclx';
+              const payload = new Uint8Array(isNclx ? 11 : 10);
+              const pv = new DataView(payload.buffer);
+              writeFourCC(payload, 0, selType.value);
+              pv.setUint16(4, Number(selPrim.value), false);
+              pv.setUint16(6, Number(selTrans.value), false);
+              pv.setUint16(8, Number(selMat.value), false);
+              if (isNclx) payload[10] = chkFull.checked ? 0x80 : 0x00;
+              return makeBox('colr', payload);
+            };
+          }
+        } else if (t === 'pasp' && pLen >= 8) {
+          const h = view.getUint32(pStart, false);
+          const v = view.getUint32(pStart + 4, false);
+          const inpH = addField('Horizontal Spacing', makeInput('number', h));
+          const inpV = addField('Vertical Spacing', makeInput('number', v));
+          onSave = () => {
+            const payload = new Uint8Array(8);
+            const pv = new DataView(payload.buffer);
+            pv.setUint32(0, Math.max(1, Number(inpH.value) || 1), false);
+            pv.setUint32(4, Math.max(1, Number(inpV.value) || 1), false);
+            return makeBox('pasp', payload);
+          };
+        } else if (t === 'vmhd' && pLen >= 12) {
+          const mode = view.getUint16(pStart + 4, false);
+          const r = view.getUint16(pStart + 6, false);
+          const g = view.getUint16(pStart + 8, false);
+          const b = view.getUint16(pStart + 10, false);
+          const inpMode = addField('Graphics Mode', makeInput('number', mode));
+          const inpR = addField('Opcolor R', makeInput('number', r));
+          const inpG = addField('Opcolor G', makeInput('number', g));
+          const inpB = addField('Opcolor B', makeInput('number', b));
+          onSave = () => {
+            const payload = new Uint8Array(boxBytes.subarray(pStart));
+            const pv = new DataView(payload.buffer);
+            pv.setUint16(4, Number(inpMode.value) || 0, false);
+            pv.setUint16(6, Number(inpR.value) || 0, false);
+            pv.setUint16(8, Number(inpG.value) || 0, false);
+            pv.setUint16(10, Number(inpB.value) || 0, false);
+            return makeBox('vmhd', payload);
+          };
+        } else if (t === 'smhd' && pLen >= 8) {
+          const bal = view.getInt16(pStart + 4, false) / 256;
+          const inpBal = addField('Audio Balance (-1.0 s/d 1.0)', makeInput('number', bal, '0.05'));
+          onSave = () => {
+            const payload = new Uint8Array(boxBytes.subarray(pStart));
+            const pv = new DataView(payload.buffer);
+            pv.setInt16(4, Math.round((Number(inpBal.value) || 0) * 256), false);
+            return makeBox('smhd', payload);
+          };
+        } else if (t === 'data' && pLen >= 8) {
+          const typeInd = view.getUint32(pStart, false);
+          const locale = view.getUint32(pStart + 4, false);
+          const valBytes = boxBytes.subarray(pStart + 8);
+          if (typeInd === 1 || typeInd === 2 || typeInd === 21 || typeInd === 22) {
+            const selType = addField('Type Indicator', makeSelect([
+              ['1', '1 (UTF-8 Text)'],
+              ['2', '2 (UTF-16BE Text)'],
+              ['21', '21 (Signed Int)'],
+              ['22', '22 (Unsigned Int)']
+            ], typeInd));
+            const inpLoc = addField('Locale', makeInput('number', locale));
+            let initVal = '';
+            if (typeInd === 1) initVal = utf8Decoder.decode(valBytes);
+            else if (typeInd === 2) initVal = decodeUTF16BE(valBytes);
+            else if (valBytes.length > 0 && valBytes.length <= 8) {
+              let num = 0n;
+              for (const b of valBytes) num = (num << 8n) | BigInt(b);
+              initVal = num.toString();
+            }
+            const inpVal = addField('Nilai Data', makeInput('text', initVal));
+
+            onSave = () => {
+              const newType = Number(selType.value);
+              const newLoc = Math.max(0, Number(inpLoc.value) || 0);
+              let encVal;
+              if (newType === 1) encVal = utf8Encoder.encode(inpVal.value);
+              else if (newType === 2) encVal = encodeUTF16BE(inpVal.value);
+              else {
+                const n = BigInt(inpVal.value || '0');
+                const buf = new ArrayBuffer(4);
+                new DataView(buf).setInt32(0, Number(n), false);
+                encVal = new Uint8Array(buf);
+              }
+              const payload = new Uint8Array(8 + encVal.length);
+              const pv = new DataView(payload.buffer);
+              pv.setUint32(0, newType, false);
+              pv.setUint32(4, newLoc, false);
+              payload.set(encVal, 8);
+              return makeBox('data', payload);
+            };
+          }
+        } else if ((t === 'mean' || t === 'name') && pLen >= 4) {
+          const curTxt = utf8Decoder.decode(boxBytes.subarray(pStart + 4));
+          const inpTxt = addField('String Value', makeInput('text', curTxt));
+          onSave = () => {
+            const enc = utf8Encoder.encode(inpTxt.value);
+            const payload = new Uint8Array(4 + enc.length);
+            payload.set(boxBytes.subarray(pStart, pStart + 4), 0);
+            payload.set(enc, 4);
+            return makeBox(t, payload);
+          };
+        } else if (t === 'url ' && pLen >= 4) {
+          const flags = (boxBytes[pStart + 1] << 16) | (boxBytes[pStart + 2] << 8) | boxBytes[pStart + 3];
+          const curLoc = pLen > 4 ? utf8Decoder.decode(boxBytes.subarray(pStart + 4)).replace(/\0/g, '') : '';
+          const inpLoc = addField('Location URL', makeInput('text', curLoc));
+          const checks = document.createElement('div');
+          checks.className = 'atom-checks';
+          const chkSelf = document.createElement('input');
+          chkSelf.type = 'checkbox';
+          chkSelf.checked = (flags & 1) === 1;
+          const lbl = document.createElement('label');
+          lbl.append(chkSelf, document.createTextNode('Self-Contained (Flag 0x01)'));
+          checks.appendChild(lbl);
+          wrapper.appendChild(grid);
+          wrapper.appendChild(checks);
+
+          onSave = () => {
+            const locBytes = chkSelf.checked || !inpLoc.value ? new Uint8Array(0) : concatUint8Arrays([utf8Encoder.encode(inpLoc.value), new Uint8Array([0])]);
+            const payload = new Uint8Array(4 + locBytes.length);
+            payload[3] = chkSelf.checked ? 1 : 0;
+            payload.set(locBytes, 4);
+            return makeBox('url ', payload);
+          };
+        }
+
+        if (!onSave) return null;
+
+        if (!grid.parentElement) wrapper.appendChild(grid);
+
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'margin-top:10px; display:flex; justify-content:flex-end;';
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'btn-primary btn-sm';
+        saveBtn.textContent = 'Terapkan Perubahan Field';
+        saveBtn.addEventListener('click', () => applyCallback(onSave));
+        btnRow.appendChild(saveBtn);
+        wrapper.appendChild(btnRow);
+
+        return wrapper;
+      }
+
+      async function renderDetailPanel(node) {
+        if (!node) return;
+        detailPanel.innerHTML = '';
+
+        const pathList = findNodePath(inspectorTree, node.id) || [format4CCDisplay(node.type)];
+        const pathEl = document.createElement('div');
+        pathEl.className = 'detail-path';
+        pathEl.textContent = pathList.join(' → ');
+        detailPanel.appendChild(pathEl);
+
+        const detailFeedback = document.createElement('div');
+        detailFeedback.className = 'inline-feedback hidden';
+        const showDetailMsg = (msg, type = '') => {
+          detailFeedback.textContent = msg;
+          detailFeedback.className = 'inline-feedback' + (type ? ' ' + type : '');
+          detailFeedback.classList.remove('hidden');
+        };
+
+        const isEditableInMem = Boolean(node.sourceMeta && node.sourceMeta.bytesRef);
+        const isLockedRoot = node.type === 'ftyp' || node.type === 'moov' || node.type === 'mdat';
+
+        // Baris Aksi Cepat Atom
+        const actionBar = document.createElement('div');
+        actionBar.className = 'atom-actions-bar';
+
+        if (isEditableInMem && !isLockedRoot) {
+          const renameWrap = document.createElement('div');
+          renameWrap.style.cssText = 'display:flex; gap:4px; align-items:center;';
+          const renameInp = document.createElement('input');
+          renameInp.type = 'text';
+          renameInp.maxLength = 4;
+          renameInp.value = node.type;
+          renameInp.style.cssText = 'width:70px; padding:5px 8px; font-family:monospace; font-size:0.78rem;';
+          const renameBtn = document.createElement('button');
+          renameBtn.type = 'button';
+          renameBtn.className = 'btn-secondary btn-sm';
+          renameBtn.textContent = 'Ubah 4CC';
+          renameBtn.addEventListener('click', async () => {
+            try {
+              if (renameInp.value.length !== 4) throw new Error('Kode 4CC harus tepat 4 karakter.');
+              replaceBoxAtTreePath(node.treePath, (bytes) => {
+                const copy = new Uint8Array(bytes);
+                writeFourCC(copy, 4, renameInp.value);
+                return copy;
+              });
+              await refreshInspector(true);
+              showLog(`Tipe atom berhasil diubah ke "${format4CCDisplay(renameInp.value)}".`, 'success');
+            } catch (err) {
+              showDetailMsg(err.message, 'error');
+            }
+          });
+          renameWrap.append(renameInp, renameBtn);
+          actionBar.appendChild(renameWrap);
+        }
+
+        // Sub-atom adder toggle
+        let addSubPanel = null;
+        if (isEditableInMem && isContainerCapableNode(node)) {
+          const btnShowAdd = document.createElement('button');
+          btnShowAdd.type = 'button';
+          btnShowAdd.className = 'btn-secondary btn-sm';
+          btnShowAdd.textContent = '+ Tambah Sub-Atom';
+          btnShowAdd.addEventListener('click', () => {
+            if (addSubPanel) addSubPanel.classList.toggle('hidden');
+          });
+          actionBar.appendChild(btnShowAdd);
+        }
+
+        // Export raw atom (.bin)
+        const btnExportAtom = document.createElement('button');
+        btnExportAtom.type = 'button';
+        btnExportAtom.className = 'btn-secondary btn-sm';
+        btnExportAtom.textContent = 'Ekspor Atom (.bin)';
+        btnExportAtom.addEventListener('click', async () => {
+          try {
+            let blob;
+            if (node.sourceMeta && node.sourceMeta.bytesRef) {
+              const raw = node.sourceMeta.bytesRef.subarray(node.sourceMeta.localOffset, node.sourceMeta.localOffset + node.size);
+              blob = new Blob([raw], { type: 'application/octet-stream' });
+            } else if (node.sourceMeta && node.sourceMeta.fileOffset >= 0 && currentFile) {
+              blob = currentFile.slice(node.sourceMeta.fileOffset, node.sourceMeta.fileOffset + node.size);
+            } else {
+              throw new Error('Data atom tidak tersedia.');
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `atom_${format4CCDisplay(node.type).replace(/[^a-zA-Z0-9_-]/g, '_')}_${node.size}B.bin`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+          } catch (err) {
+            showDetailMsg(err.message, 'error');
+          }
+        });
+        actionBar.appendChild(btnExportAtom);
+
+        // Delete atom (2-step inline confirmation, tanpa window.confirm)
+        if (isEditableInMem && !isLockedRoot) {
+          const btnDel = document.createElement('button');
+          btnDel.type = 'button';
+          btnDel.className = 'btn-danger btn-sm';
+          btnDel.textContent = 'Hapus Atom';
+          let armed = false;
+          let armTimer = null;
+          btnDel.addEventListener('click', async () => {
+            if (!armed) {
+              armed = true;
+              btnDel.textContent = 'Klik Lagi untuk Konfirmasi Hapus';
+              armTimer = setTimeout(() => {
+                armed = false;
+                btnDel.textContent = 'Hapus Atom';
+              }, 3500);
+              return;
+            }
+            clearTimeout(armTimer);
+            try {
+              const parentPath = node.treePath.includes('/')
+                ? node.treePath.slice(0, node.treePath.lastIndexOf('/'))
+                : null;
+              replaceBoxAtTreePath(node.treePath, () => null);
+              selectedTreePath = parentPath || '0';
+              await refreshInspector(true);
+              showLog(`Atom "${format4CCDisplay(node.type)}" dihapus dan offset stco/co64 diperbarui.`, 'success');
+            } catch (err) {
+              showDetailMsg(err.message, 'error');
+            }
+          });
+          actionBar.appendChild(btnDel);
+        }
+
+        detailPanel.appendChild(actionBar);
+        detailPanel.appendChild(detailFeedback);
+
+        // Panel Tambah Sub-Atom
+        if (isEditableInMem && isContainerCapableNode(node)) {
+          addSubPanel = document.createElement('div');
+          addSubPanel.className = 'atom-editor-box hidden';
+          addSubPanel.innerHTML = `<div class="atom-editor-title"><span>Tambah Sub-Atom ke [${format4CCDisplay(node.type)}]</span></div>`;
+
+          const addGrid = document.createElement('div');
+          addGrid.className = 'atom-editor-grid';
+
+          const selPreset = document.createElement('select');
+          [
+            ['free', 'free (8 byte padding)'],
+            ['colr_bt709', 'colr (nclx BT.709 Limited)'],
+            ['pasp', 'pasp (Pixel Aspect 1:1)'],
+            ['ilst_title', '©nam (Tag Title di ilst)'],
+            ['custom', 'Custom 4CC...']
+          ].forEach(([v, txt]) => {
+            const o = document.createElement('option');
+            o.value = v; o.textContent = txt;
+            selPreset.appendChild(o);
+          });
+
+          const f1 = document.createElement('div'); f1.className = 'atom-field';
+          f1.innerHTML = '<label>Template / Preset</label>'; f1.appendChild(selPreset);
+
+          const inpC4 = document.createElement('input'); inpC4.type = 'text'; inpC4.maxLength = 4; inpC4.placeholder = '4CC (mis: free)';
+          const f2 = document.createElement('div'); f2.className = 'atom-field hidden';
+          f2.innerHTML = '<label>Kode 4CC</label>'; f2.appendChild(inpC4);
+
+          const selMode = document.createElement('select');
+          [['text', 'Teks UTF-8'], ['hex', 'Raw Hex Bytes']].forEach(([v, txt]) => {
+            const o = document.createElement('option'); o.value = v; o.textContent = txt; selMode.appendChild(o);
+          });
+          const f3 = document.createElement('div'); f3.className = 'atom-field hidden';
+          f3.innerHTML = '<label>Format Payload</label>'; f3.appendChild(selMode);
+
+          const inpVal = document.createElement('input'); inpVal.type = 'text'; inpVal.placeholder = 'Isi teks atau hex (mis: 00 00 00 01)';
+          const f4 = document.createElement('div'); f4.className = 'atom-field hidden';
+          f4.innerHTML = '<label>Payload</label>'; f4.appendChild(inpVal);
+
+          selPreset.addEventListener('change', () => {
+            const isCust = selPreset.value === 'custom';
+            [f2, f3, f4].forEach(el => el.classList.toggle('hidden', !isCust));
+          });
+
+          addGrid.append(f1, f2, f3, f4);
+          addSubPanel.appendChild(addGrid);
+
+          const addBtnRow = document.createElement('div');
+          addBtnRow.style.cssText = 'margin-top:10px; display:flex; justify-content:flex-end;';
+          const doAddBtn = document.createElement('button');
+          doAddBtn.type = 'button';
+          doAddBtn.className = 'btn-primary btn-sm';
+          doAddBtn.textContent = 'Sisipkan Sub-Atom';
+          doAddBtn.addEventListener('click', async () => {
+            try {
+              const newBox = buildPresetSubAtom(selPreset.value, node, inpC4.value, inpVal.value, selMode.value);
+              addChildBoxAtTreePath(node.treePath, newBox);
+              expandedTreePaths.add(node.treePath);
+              await refreshInspector(true);
+              showLog(`Sub-atom "${format4CCDisplay(readFourCC(newBox, 4))}" berhasil ditambahkan ke "${format4CCDisplay(node.type)}".`, 'success');
+            } catch (err) {
+              showDetailMsg(err.message, 'error');
+            }
+          });
+          addBtnRow.appendChild(doAddBtn);
+          addSubPanel.appendChild(addBtnRow);
+          detailPanel.appendChild(addSubPanel);
+        }
+
+        const metaGrid = document.createElement('div');
+        metaGrid.className = 'detail-meta-grid';
+        const kvItems = [
+          ['Offset File', `${toHexOffset(node.absOffset)} (${node.absOffset.toLocaleString()})`],
+          ['Total Ukuran', `${node.size.toLocaleString()} bytes (${formatBytes(node.size)})`],
+          ['Header Size', `${node.headerSize} bytes`],
+          ['Sub-Atom Anak', `${node.children.length} box`]
+        ];
+        for (const [k, v] of kvItems) {
+          const box = document.createElement('div');
+          box.className = 'detail-kv';
+          const lbl = document.createElement('span');
+          lbl.textContent = k;
+          const val = document.createElement('div');
+          val.textContent = v;
+          box.append(lbl, val);
+          metaGrid.appendChild(box);
+        }
+        detailPanel.appendChild(metaGrid);
+
+        // Editor Field Terstruktur
+        const structuredEditor = buildStructuredAtomEditor(node, async (buildFn) => {
+          try {
+            replaceBoxAtTreePath(node.treePath, () => buildFn());
+            await refreshInspector(true);
+            showLog(`Field atom "${format4CCDisplay(node.type)}" berhasil diperbarui & offset stco/co64 disesuaikan.`, 'success');
+          } catch (err) {
+            showDetailMsg(err.message, 'error');
+          }
+        });
+        if (structuredEditor) {
+          detailPanel.appendChild(structuredEditor);
+        }
+
+        if (node.fields.length > 0) {
+          const table = document.createElement('table');
+          table.className = 'detail-table';
+          for (const [k, v] of node.fields) {
+            const tr = document.createElement('tr');
+            const th = document.createElement('th');
+            th.textContent = k;
+            const td = document.createElement('td');
+            td.textContent = v;
+            tr.append(th, td);
+            table.appendChild(tr);
+          }
+          detailPanel.appendChild(table);
+        }
+
+        // Raw Hex Payload Editor (untuk atom <= 64 KB di RAM)
+        if (isEditableInMem && node.size <= 65536) {
+          const hexEdBox = document.createElement('div');
+          hexEdBox.className = 'atom-editor-box';
+          hexEdBox.innerHTML = `<div class="atom-editor-title"><span>Editor Raw Hex Payload (${(node.size - node.headerSize).toLocaleString()} bytes)</span></div>`;
+
+          const rawBytes = node.sourceMeta.bytesRef.subarray(
+            node.sourceMeta.localOffset + node.headerSize,
+            node.sourceMeta.localOffset + node.size
+          );
+          const hexArea = document.createElement('textarea');
+          hexArea.className = 'hex-editor-area';
+          hexArea.spellcheck = false;
+          hexArea.value = bytesToHexSpaced(rawBytes);
+
+          const hexBtnRow = document.createElement('div');
+          hexBtnRow.style.cssText = 'margin-top:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;';
+          const hexHint = document.createElement('span');
+          hexHint.style.cssText = 'font-size:0.72rem; color:var(--muted);';
+          hexHint.textContent = 'Ubah byte payload (tanpa 8-byte header size+type). Ukuran parent box dihitung ulang otomatis.';
+
+          const btnApplyHex = document.createElement('button');
+          btnApplyHex.type = 'button';
+          btnApplyHex.className = 'btn-secondary btn-sm';
+          btnApplyHex.textContent = 'Terapkan Raw Hex';
+          btnApplyHex.addEventListener('click', async () => {
+            try {
+              const newPayload = parseHexString(hexArea.value);
+              replaceBoxAtTreePath(node.treePath, () => makeBox(node.type, newPayload));
+              await refreshInspector(true);
+              showLog(`Raw hex atom "${format4CCDisplay(node.type)}" diterapkan (${newPayload.length} bytes payload).`, 'success');
+            } catch (err) {
+              showDetailMsg(err.message, 'error');
+            }
+          });
+
+          hexBtnRow.append(hexHint, btnApplyHex);
+          hexEdBox.append(hexArea, hexBtnRow);
+          detailPanel.appendChild(hexEdBox);
+        }
+
+        const hexLabel = document.createElement('div');
+        hexLabel.style.cssText = 'font-size:0.76rem; color:var(--muted); margin-bottom:6px;';
+        hexLabel.textContent = `Hex & ASCII Preview (${Math.min(512, node.size)} dari ${node.size.toLocaleString()} bytes):`;
+        detailPanel.appendChild(hexLabel);
+
+        const hexPre = document.createElement('div');
+        hexPre.className = 'hex-dump';
+        hexPre.textContent = 'Memuat bytes...';
+        detailPanel.appendChild(hexPre);
+
+        const sampleBytes = await getNodeHexSample(node, 512);
+        if (selectedTreePath === node.treePath) {
+          hexPre.textContent = formatHexDump(sampleBytes, node.absOffset);
+        }
+      }
+
+      function generateFullTextReport() {
+        if (!currentFile || inspectorTree.length === 0) return '';
+
+        const lines = [];
+        const hr = '='.repeat(76);
+        const subHr = '-'.repeat(76);
+
+        lines.push(hr);
+        lines.push('LAPORAN ANALISIS STRUKTUR ATOM & METADATA MP4');
+        lines.push(hr);
+        lines.push(`Nama File      : ${currentFile.name}`);
+        lines.push(`Ukuran File    : ${currentFile.size.toLocaleString()} bytes (${formatBytes(currentFile.size)})`);
+        lines.push(`Mode Analisis  : ${inspectingEdited ? 'HASIL EDIT (Sudah Di-patch)' : 'FILE ASLI'}`);
+        lines.push(`Waktu Analisis : ${new Date().toISOString()}`);
+        lines.push('');
+
+        // Ringkasan Top-Level
+        lines.push('[1] PETA TOP-LEVEL BOX');
+        lines.push(subHr);
+        for (const n of inspectorTree) {
+          const pct = ((n.size / currentFile.size) * 100).toFixed(2).padStart(6, ' ');
+          lines.push(
+            `- ${format4CCDisplay(n.type).padEnd(6, ' ')} | offset: ${toHexOffset(n.absOffset)} (${String(n.absOffset).padStart(12, ' ')}) | size: ${String(n.size).padStart(12, ' ')} B (${pct}%)`
+          );
+        }
+        lines.push('');
+
+        // Ringkasan Tag Metadata Editor
+        lines.push('[2] RINGKASAN TAG METADATA (moov -> meta -> ilst)');
+        lines.push(subHr);
+        let tagCount = 0;
+        for (const tag of STANDARD_TAGS) {
+          const v = standardValues[tag.code];
+          if (v) {
+            lines.push(`- [${format4CCDisplay(tag.code)}] ${tag.label}: ${v}`);
+            tagCount++;
+          }
+        }
+        for (const extra of extraTextTags) {
+          if (extra.value) {
+            lines.push(`- [${format4CCDisplay(extra.code)}] Custom Text: ${extra.value}`);
+            tagCount++;
+          }
+        }
+        for (const item of preservedItems) {
+          lines.push(`- [${format4CCDisplay(item.code)}] Binary/Special Item (${item.rawBytes.length} bytes)`);
+          tagCount++;
+        }
+        if (tagCount === 0) {
+          lines.push('(Tidak ada tag metadata pada formulir saat ini)');
+        }
+        lines.push('');
+
+        // Pohon Struktur Lengkap hingga Sub-Atom
+        lines.push('[3] POHON STRUKTUR LENGKAP HINGGA TINGKAT ATOM');
+        lines.push(subHr);
+
+        function walkText(nodes, prefix = '') {
+          nodes.forEach((node, idx) => {
+            const isLast = idx === nodes.length - 1;
+            const connector = prefix === '' ? '' : (isLast ? '└── ' : '├── ');
+            const childPrefix = prefix === '' ? '    ' : prefix + (isLast ? '    ' : '│   ');
+
+            const sumText = node.summary ? ` — ${node.summary}` : '';
+            lines.push(
+              `${prefix}${connector}[${format4CCDisplay(node.type)}] offset=${toHexOffset(node.absOffset)} (${node.absOffset}), size=${node.size.toLocaleString()} B, hdr=${node.headerSize}B${sumText}`
+            );
+
+            for (const [k, v] of node.fields) {
+              lines.push(`${childPrefix}• ${k}: ${v}`);
+            }
+
+            if (node.children.length > 0) {
+              walkText(node.children, childPrefix);
+            }
+          });
+        }
+
+        walkText(inspectorTree, '');
+        lines.push(hr);
+
+        return lines.join('\n');
+      }
+
+      function generateJsonReport() {
+        if (!currentFile || inspectorTree.length === 0) return '';
+
+        const serializeNode = (node) => ({
+          type: format4CCDisplay(node.type),
+          rawFourCC: node.type,
+          offset: node.absOffset,
+          offsetHex: toHexOffset(node.absOffset),
+          size: node.size,
+          headerSize: node.headerSize,
+          summary: node.summary || null,
+          fields: Object.fromEntries(node.fields),
+          children: node.children.map(serializeNode)
+        });
+
+        const reportObj = {
+          fileName: currentFile.name,
+          fileSize: currentFile.size,
+          mode: inspectingEdited ? 'edited_patched' : 'original',
+          analyzedAt: new Date().toISOString(),
+          metadataTags: {
+            standard: Object.fromEntries(
+              STANDARD_TAGS.filter(t => standardValues[t.code]).map(t => [format4CCDisplay(t.code), standardValues[t.code]])
+            ),
+            customText: extraTextTags.map(e => ({ code: format4CCDisplay(e.code), value: e.value })),
+            preservedBinary: preservedItems.map(p => ({ code: format4CCDisplay(p.code), size: p.rawBytes.length }))
+          },
+          atoms: inspectorTree.map(serializeNode)
+        };
+
+        return JSON.stringify(reportObj, null, 2);
+      }
+
+      async function refreshInspector(useEdited = false) {
+        if (!currentFile || !moovBoxInfo) return;
+
+        inspectingEdited = useEdited;
+        const isFirstLoad = inspectorTree.length === 0;
+
+        if (useEdited) {
+          const out = buildOutputData();
+          inspectorModeBadge.textContent = 'Mode: Hasil Edit (Patched)';
+          inspectorModeBadge.classList.add('edited');
+          btnInspectOriginal.classList.remove('hidden');
+          inspectorTree = await buildInspectorTree(topLevelBoxes, out.newMoovBytes, out.layout);
+        } else {
+          inspectorModeBadge.textContent = 'Mode: File Asli';
+          inspectorModeBadge.classList.remove('edited');
+          btnInspectOriginal.classList.add('hidden');
+          inspectorTree = await buildInspectorTree(topLevelBoxes, moovOriginalBytes, null);
+        }
+
+        if (isFirstLoad) {
+          expandedTreePaths.clear();
+          for (const root of inspectorTree) {
+            if (root.children.length > 0) expandedTreePaths.add(root.treePath);
+            if (root.type === 'moov') {
+              for (const ch of root.children) {
+                if (ch.type === 'udta' || ch.type === 'meta') expandedTreePaths.add(ch.treePath);
+              }
+            }
+          }
+        }
+
+        let targetNode = selectedTreePath ? findNodeByTreePath(inspectorTree, selectedTreePath) : null;
+        if (!targetNode) {
+          targetNode = inspectorTree.find(n => n.type === 'moov') || inspectorTree[0] || null;
+          selectedTreePath = targetNode ? targetNode.treePath : null;
+        }
+
+        renderTreePanel();
+        if (targetNode) await renderDetailPanel(targetNode);
+
+        cachedTextReport = generateFullTextReport();
+        cachedJsonReport = generateJsonReport();
+        if (!reportPreviewWrapper.classList.contains('hidden')) {
+          reportPreviewBox.value = cachedTextReport;
+        }
+      }
+
+      function expandOrCollapseAll(expand) {
+        expandedTreePaths.clear();
+        if (expand) {
+          function walk(nodes) {
+            for (const n of nodes) {
+              if (n.children.length > 0) {
+                expandedTreePaths.add(n.treePath);
+                walk(n.children);
+              }
+            }
+          }
+          walk(inspectorTree);
+        }
+        renderTreePanel();
+      }
+
+      // =========================================================================
+      // UI EDITOR & FILE HANDLER
+      // =========================================================================
+
+      function setVideoPreviewSource(blobOrFile, labelText) {
+        if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+        previewObjectUrl = URL.createObjectURL(blobOrFile);
+        videoPreview.src = previewObjectUrl;
+        previewBadge.textContent = labelText;
+      }
+
+      function renderEditorUI() {
+        standardTagsContainer.innerHTML = '';
+        for (const tag of STANDARD_TAGS) {
+          const row = document.createElement('div');
+          row.className = 'tag-row';
+
+          const labelEl = document.createElement('div');
+          labelEl.className = 'tag-label';
+          labelEl.textContent = tag.label + ' ';
+          const codeSpan = document.createElement('span');
+          codeSpan.className = 'tag-code';
+          codeSpan.textContent = format4CCDisplay(tag.code);
+          labelEl.appendChild(codeSpan);
+
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.placeholder = tag.placeholder;
+          input.value = standardValues[tag.code] || '';
+          input.addEventListener('input', (e) => {
+            standardValues[tag.code] = e.target.value;
+            syncFormTagsToWorkingMoov();
+          });
+
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'btn-danger btn-sm';
+          delBtn.textContent = 'Hapus';
+          delBtn.addEventListener('click', () => {
+            standardValues[tag.code] = '';
+            input.value = '';
+            syncFormTagsToWorkingMoov();
+            if (inspectingEdited) refreshInspector(true);
+          });
+
+          row.append(labelEl, input, delBtn);
+          standardTagsContainer.appendChild(row);
+        }
+
+        extraTagsContainer.innerHTML = '';
+        if (extraTextTags.length > 0) {
+          extraTagsWrapper.classList.remove('hidden');
+          extraTextTags.forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = 'tag-row';
+
+            const labelEl = document.createElement('div');
+            labelEl.className = 'tag-label';
+            labelEl.textContent = 'Tag ';
+            const codeSpan = document.createElement('span');
+            codeSpan.className = 'tag-code';
+            codeSpan.textContent = format4CCDisplay(item.code);
+            labelEl.appendChild(codeSpan);
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = item.value;
+            input.addEventListener('input', (e) => {
+              extraTextTags[idx].value = e.target.value;
+              syncFormTagsToWorkingMoov();
+            });
+
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn-danger btn-sm';
+            delBtn.textContent = 'Hapus';
+            delBtn.addEventListener('click', () => {
+              extraTextTags.splice(idx, 1);
+              syncFormTagsToWorkingMoov();
+              renderEditorUI();
+              if (inspectingEdited) refreshInspector(true);
+            });
+
+            row.append(labelEl, input, delBtn);
+            extraTagsContainer.appendChild(row);
+          });
+        } else {
+          extraTagsWrapper.classList.add('hidden');
+        }
+
+        preservedContainer.innerHTML = '';
+        if (preservedItems.length > 0) {
+          preservedSection.classList.remove('hidden');
+          preservedItems.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'preserved-item';
+
+            const left = document.createElement('div');
+            const codeSpan = document.createElement('span');
+            codeSpan.className = 'tag-code';
+            codeSpan.textContent = format4CCDisplay(item.code);
+            const desc = document.createElement('span');
+            desc.style.marginLeft = '8px';
+            desc.style.color = 'var(--muted)';
+            desc.textContent = `Data biner/khusus (${formatBytes(item.rawBytes.length)})`;
+            left.append(codeSpan, desc);
+
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn-danger btn-sm';
+            delBtn.textContent = 'Hapus';
+            delBtn.addEventListener('click', () => {
+              preservedItems.splice(idx, 1);
+              syncFormTagsToWorkingMoov();
+              renderEditorUI();
+              if (inspectingEdited) refreshInspector(true);
+            });
+
+            div.append(left, delBtn);
+            preservedContainer.appendChild(div);
+          });
+        } else {
+          preservedSection.classList.add('hidden');
+        }
+      }
+
+      function showUploadError(msg) {
+        if (!msg) {
+          uploadErrorBox.classList.add('hidden');
+          uploadErrorBox.textContent = '';
+        } else {
+          uploadErrorBox.textContent = msg;
+          uploadErrorBox.classList.remove('hidden');
+        }
+      }
+
+      function showLog(message, type = '') {
+        statusLog.textContent = message;
+        statusLog.className = 'log-box' + (type ? ' ' + type : '');
+        statusLog.classList.remove('hidden');
+      }
+
+      async function handleFile(file) {
+        if (!file) return;
+        statusLog.classList.add('hidden');
+        showUploadError('');
+
+        try {
+          currentFile = file;
+          topLevelBoxes = await scanTopLevelBoxes(file);
+          moovBoxInfo = topLevelBoxes.find(b => b.type === 'moov');
+
+          if (!moovBoxInfo) {
+            throw new Error('Atom "moov" tidak ditemukan. Pastikan ini file MP4/MOV yang valid.');
+          }
+
+          const moovBuf = await file.slice(moovBoxInfo.start, moovBoxInfo.start + moovBoxInfo.size).arrayBuffer();
+          moovOriginalBytes = new Uint8Array(moovBuf);
+
+          await initializeWorkingTopBoxes();
+          const counts = countChunkOffsetTables(moovOriginalBytes, moovBoxInfo.headerSize, moovOriginalBytes.length);
+          parseMetadataFromMoov(moovOriginalBytes, moovBoxInfo.headerSize);
+
+          document.getElementById('infoName').textContent = file.name;
+          document.getElementById('infoSize').textContent = formatBytes(file.size);
+          document.getElementById('infoMoov').textContent =
+            `${formatBytes(moovBoxInfo.size)} (posisi: ${moovBoxInfo.start.toLocaleString()})`;
+          document.getElementById('infoOffsets').textContent =
+            `stco: ${counts.stcoEntries.toLocaleString()} | co64: ${counts.co64Entries.toLocaleString()}`;
+
+          const atomFlow = document.getElementById('atomFlow');
+          atomFlow.innerHTML = '<span style="font-size:0.78rem;color:var(--muted);margin-right:4px;">Struktur Box:</span>';
+          topLevelBoxes.forEach((b, i) => {
+            if (i > 0) {
+              const arrow = document.createElement('span');
+              arrow.style.color = 'var(--muted)';
+              arrow.textContent = '→';
+              atomFlow.appendChild(arrow);
+            }
+            const pill = document.createElement('span');
+            pill.className = 'atom-pill' + (b.type === 'moov' ? ' highlight' : '');
+            pill.textContent = `${b.type} (${formatBytes(b.size)})`;
+            atomFlow.appendChild(pill);
+          });
+
+          inspectorTree = [];
+          selectedTreePath = null;
+          setVideoPreviewSource(file, 'Preview Video Asli');
+          fileInfoSection.classList.remove('hidden');
+          editorSection.classList.remove('hidden');
+          renderEditorUI();
+          await refreshInspector(false);
+        } catch (err) {
+          fileInfoSection.classList.add('hidden');
+          editorSection.classList.add('hidden');
+          showUploadError('Gagal membaca video: ' + err.message);
+        }
+      }
+
+      // Event Listeners
+      fileInput.addEventListener('click', () => {
+        fileInput.value = '';
+      });
+      fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+          handleFile(e.dataTransfer.files[0]);
+        }
+      });
+
+      btnTogglePreview.addEventListener('click', () => {
+        const isHidden = videoPreview.classList.toggle('hidden');
+        btnTogglePreview.textContent = isHidden ? 'Tampilkan Preview' : 'Sembunyikan Preview';
+        if (isHidden) videoPreview.pause();
+      });
+
+      document.getElementById('btnInsertCopy').addEventListener('click', () => {
+        const codeInput = document.getElementById('customTagCode');
+        if (codeInput.value.length < 4) {
+          codeInput.value = '©' + codeInput.value.slice(0, 3);
+        }
+        codeInput.focus();
+      });
+
+      document.getElementById('btnAddCustom').addEventListener('click', () => {
+        const codeInput = document.getElementById('customTagCode');
+        const valInput = document.getElementById('customTagVal');
+        const rawCode = codeInput.value;
+        const val = valInput.value;
+
+        if (rawCode.length !== 4) {
+          showLog('Kode tag 4CC harus tepat 4 karakter (contoh: ©lyr, ©wrt, purd).', 'error');
+          return;
+        }
+        if (!val) {
+          showLog('Isi nilai teks terlebih dahulu sebelum menambah tag.', 'error');
+          return;
+        }
+
+        if (STANDARD_CODE_SET.has(rawCode)) {
+          standardValues[rawCode] = val;
+        } else {
+          const existing = extraTextTags.find(t => t.code === rawCode);
+          if (existing) existing.value = val;
+          else extraTextTags.push({ code: rawCode, value: val });
+        }
+
+        syncFormTagsToWorkingMoov();
+        codeInput.value = '';
+        valInput.value = '';
+        renderEditorUI();
+        if (inspectingEdited) refreshInspector(true);
+        showLog(`Tag "${format4CCDisplay(rawCode)}" ditambahkan ke draft edit.`, 'success');
+      });
+
+      document.getElementById('btnStripAll').addEventListener('click', () => {
+        standardValues = {};
+        extraTextTags = [];
+        preservedItems = [];
+        syncFormTagsToWorkingMoov();
+        renderEditorUI();
+        if (inspectingEdited) refreshInspector(true);
+        showLog('Semua tag di formulir dibersihkan. Klik "Analisa Struktur Hasil Edit", "Uji Putar Hasil", atau "Simpan & Download MP4".', '');
+      });
+
+      document.getElementById('btnResetAtoms').addEventListener('click', async () => {
+        if (!currentFile || !moovOriginalBytes) return;
+        await initializeWorkingTopBoxes();
+        parseMetadataFromMoov(moovOriginalBytes, moovBoxInfo.headerSize);
+        renderEditorUI();
+        await refreshInspector(false);
+        setVideoPreviewSource(currentFile, 'Preview Video Asli');
+        showLog('Seluruh perubahan atom dan metadata telah dikembalikan ke kondisi file asli.', '');
+      });
+
+      document.getElementById('btnInspectEdited').addEventListener('click', async () => {
+        try {
+          await refreshInspector(true);
+          showLog('Atom Tree Inspector diperbarui untuk menampilkan struktur HASIL EDIT (termasuk offset stco/co64 terbaru).', 'success');
+        } catch (err) {
+          showLog('Gagal menganalisa hasil edit: ' + err.message, 'error');
+        }
+      });
+
+      btnInspectOriginal.addEventListener('click', async () => {
+        await refreshInspector(false);
+      });
+
+      document.getElementById('btnExpandAll').addEventListener('click', () => expandOrCollapseAll(true));
+      document.getElementById('btnCollapseAll').addEventListener('click', () => expandOrCollapseAll(false));
+
+      document.getElementById('btnToggleReportText').addEventListener('click', (e) => {
+        const isHidden = reportPreviewWrapper.classList.toggle('hidden');
+        e.target.textContent = isHidden ? 'Lihat Teks Laporan' : 'Tutup Teks Laporan';
+        if (!isHidden) {
+          cachedTextReport = generateFullTextReport();
+          reportPreviewBox.value = cachedTextReport;
+        }
+      });
+
+      document.getElementById('btnCopyReport').addEventListener('click', async (e) => {
+        cachedTextReport = generateFullTextReport();
+        if (!cachedTextReport) return;
+        try {
+          await navigator.clipboard.writeText(cachedTextReport);
+          const orig = e.target.textContent;
+          e.target.textContent = 'Tersalin!';
+          setTimeout(() => { e.target.textContent = orig; }, 1600);
+        } catch {
+          reportPreviewWrapper.classList.remove('hidden');
+          reportPreviewBox.value = cachedTextReport;
+          reportPreviewBox.select();
+          document.execCommand('copy');
+        }
+      });
+
+      document.getElementById('btnDownloadReport').addEventListener('click', () => {
+        cachedTextReport = generateFullTextReport();
+        if (!cachedTextReport || !currentFile) return;
+
+        const blob = new Blob([cachedTextReport], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const dotIdx = currentFile.name.lastIndexOf('.');
+        const baseName = dotIdx > 0 ? currentFile.name.slice(0, dotIdx) : currentFile.name;
+        const suffix = inspectingEdited ? '_edited_atoms.txt' : '_atoms_report.txt';
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${baseName}${suffix}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      });
+
+      document.getElementById('btnDownloadJson').addEventListener('click', () => {
+        cachedJsonReport = generateJsonReport();
+        if (!cachedJsonReport || !currentFile) return;
+
+        const blob = new Blob([cachedJsonReport], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const dotIdx = currentFile.name.lastIndexOf('.');
+        const baseName = dotIdx > 0 ? currentFile.name.slice(0, dotIdx) : currentFile.name;
+        const suffix = inspectingEdited ? '_edited_atoms.json' : '_atoms_report.json';
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${baseName}${suffix}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      });
+
+      document.getElementById('btnTestOutput').addEventListener('click', () => {
+        if (!currentFile || !moovBoxInfo || !moovOriginalBytes) return;
+        try {
+          const { finalBlob, newMoovBytes, delta, patchResult } = buildOutputData();
+          setVideoPreviewSource(finalBlob, 'Preview Hasil Edit (Offset Sudah Di-patch)');
+          videoPreview.classList.remove('hidden');
+          btnTogglePreview.textContent = 'Sembunyikan Preview';
+          videoPreview.play().catch(() => {});
+
+          const sign = delta > 0 ? '+' : '';
+          showLog(
+            `Preview hasil berhasil dibuat & dimuat ke player!\n` +
+            `- Ukuran moov lama : ${moovBoxInfo.size.toLocaleString()} bytes\n` +
+            `- Ukuran moov baru : ${newMoovBytes.length.toLocaleString()} bytes (delta: ${sign}${delta} bytes)\n` +
+            `- Offset stco diubah: ${patchResult.stcoPatched.toLocaleString()} entri\n` +
+            `- Offset co64 diubah: ${patchResult.co64Patched.toLocaleString()} entri`,
+            'success'
+          );
+        } catch (err) {
+          showLog('Gagal membuat preview hasil: ' + err.message, 'error');
+        }
+      });
+
+      document.getElementById('btnExport').addEventListener('click', () => {
+        if (!currentFile || !moovBoxInfo || !moovOriginalBytes) return;
+        try {
+          const { finalBlob, newMoovBytes, delta, patchResult } = buildOutputData();
+
+          if (lastDownloadUrl) URL.revokeObjectURL(lastDownloadUrl);
+          lastDownloadUrl = URL.createObjectURL(finalBlob);
+
+          const dotIdx = currentFile.name.lastIndexOf('.');
+          const baseName = dotIdx > 0 ? currentFile.name.slice(0, dotIdx) : currentFile.name;
+          const ext = dotIdx > 0 ? currentFile.name.slice(dotIdx) : '.mp4';
+
+          const a = document.createElement('a');
+          a.href = lastDownloadUrl;
+          a.download = `${baseName}_meta${ext}`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+
+          const sign = delta > 0 ? '+' : '';
+          showLog(
+            `Berhasil! File siap diunduh: ${a.download}\n` +
+            `- Ukuran moov lama : ${moovBoxInfo.size.toLocaleString()} bytes\n` +
+            `- Ukuran moov baru : ${newMoovBytes.length.toLocaleString()} bytes (delta: ${sign}${delta} bytes)\n` +
+            `- Offset stco diubah: ${patchResult.stcoPatched.toLocaleString()} entri\n` +
+            `- Offset co64 diubah: ${patchResult.co64Patched.toLocaleString()} entri`,
+            'success'
+          );
+        } catch (err) {
+          showLog('Gagal memproses file: ' + err.message, 'error');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
