@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Canvas Video Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    html, body {
+      height: 100dvh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #09090b;
+      color: #f4f4f5;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .safe-top {
+      padding-top: max(0.75rem, env(safe-area-inset-top));
+    }
+
+    .safe-bottom {
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    }
+
+    .preview-canvas {
+      max-width: 100%;
+      max-height: 62dvh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 8px;
+      border-radius: 9999px;
+      background: #27272a;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      margin-top: -6px;
+      background-color: #6366f1;
+      border: 2px solid #e0e7ff;
+      height: 20px;
+      width: 20px;
+      border-radius: 9999px;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5);
+    }
+
+    textarea::-webkit-scrollbar,
+    .scroll-panel::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    textarea::-webkit-scrollbar-thumb,
+    .scroll-panel::-webkit-scrollbar-thumb {
+      background: #3f3f46;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="font-sans bg-zinc-950 text-zinc-100 flex flex-col h-[100dvh] select-none">
+  <header class="safe-top flex-none bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 px-4 pb-3 flex items-center justify-between gap-2">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 flex-none">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+        </svg>
+      </div>
+      <div class="min-w-0">
+        <h1 class="text-sm font-bold tracking-tight text-white truncate">Canvas Video Studio</h1>
+        <p id="headerMeta" class="text-[11px] text-zinc-400 truncate">720x1280 · 30 FPS · 5.0s</p>
+      </div>
+    </div>
+    <div id="codeBadge" class="flex-none px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+      Kaset Siap
+    </div>
+  </header>
+
+  <main class="flex-1 min-h-0 relative overflow-hidden">
+    <section id="tab-kode" class="h-full flex flex-col p-3 sm:p-4 gap-3 overflow-y-auto scroll-panel">
+      <div class="flex flex-wrap items-center justify-between gap-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-3">
+        <div class="flex items-center gap-2">
+          <label for="durationInput" class="text-xs font-medium text-zinc-300">Durasi (detik)</label>
+          <input id="durationInput" type="number" min="0.5" max="300" step="0.1" value="5" class="w-20 bg-zinc-950 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <span id="audioDurationHint" class="text-[11px] text-zinc-400">Manual (belum ada audio)</span>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <button id="btnPaste" type="button" class="px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-[0.98] text-xs font-semibold text-zinc-100 border border-zinc-700 transition">
+          Paste Clipboard
+        </button>
+        <button id="btnClear" type="button" class="px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-[0.98] text-xs font-semibold text-rose-300 border border-zinc-700 transition">
+          Clear
+        </button>
+        <button id="btnDemo" type="button" class="px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-[0.98] text-xs font-semibold text-amber-300 border border-zinc-700 transition">
+          Load Demo
+        </button>
+        <button id="btnApply" type="button" class="px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-xs font-semibold text-white shadow-md shadow-indigo-600/30 transition">
+          Terapkan Kode
+        </button>
+      </div>
+
+      <div id="codeStatusBox" class="hidden rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed border"></div>
+
+      <div class="flex-1 min-h-[260px] flex flex-col bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+        <div class="px-3 py-2 bg-zinc-900/90 border-b border-zinc-800 flex items-center justify-between text-[11px] text-zinc-400">
+          <span class="font-mono">drawScene(ctx, time, audioLevel, width, height)</span>
+          <span>JS 2D</span>
+        </div>
+        <textarea id="codeEditor" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" class="flex-1 w-full bg-zinc-950 text-zinc-100 font-mono text-xs leading-relaxed p-3.5 resize-none focus:outline-none select-text" placeholder="Tempel fungsi drawScene(ctx, time, audioLevel, width, height) di sini..."></textarea>
+      </div>
+    </section>
+
+    <section id="tab-preview" class="hidden h-full flex flex-col justify-between p-3 sm:p-4 gap-3 overflow-y-auto scroll-panel">
+      <div class="flex-1 min-h-0 flex items-center justify-center bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-2 overflow-hidden relative">
+        <canvas id="previewCanvas" class="preview-canvas rounded-xl bg-black shadow-2xl border border-zinc-800"></canvas>
+      </div>
+
+      <div id="previewErrorBox" class="hidden rounded-2xl px-3.5 py-2.5 text-xs bg-rose-500/15 text-rose-300 border border-rose-500/30"></div>
+
+      <div class="flex-none flex flex-col gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-3.5">
+        <div class="flex items-center justify-between gap-2">
+          <label class="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-zinc-950 border border-zinc-700 hover:border-indigo-500 cursor-pointer transition min-w-0">
+            <svg class="w-4 h-4 text-indigo-400 flex-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+            <span id="audioFileName" class="text-xs text-zinc-300 truncate">Unggah Audio (MP3/WAV/M4A)</span>
+            <input id="audioInput" type="file" accept="audio/*" class="hidden">
+          </label>
+          <button id="btnRemoveAudio" type="button" class="hidden flex-none px-3 py-2.5 rounded-xl bg-rose-500/15 text-rose-300 border border-rose-500/30 text-xs font-semibold active:scale-[0.98]">
+            Hapus
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <input id="seekSlider" type="range" min="0" max="5" step="0.01" value="0" class="w-full">
+          <div class="flex items-center justify-between text-[11px] font-mono text-zinc-400">
+            <span id="timeCurrent">00:00</span>
+            <span id="audioMeterText">Audio: 0%</span>
+            <span id="timeTotal">00:05</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <button id="btnRestart" type="button" class="py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-[0.98] text-xs font-semibold text-zinc-100 border border-zinc-700 flex items-center justify-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            Restart 00:00
+          </button>
+          <button id="btnPlayPause" type="button" class="py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-1.5">
+            <svg id="iconPlay" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5.14v14l11-7-11-7z" />
+            </svg>
+            <svg id="iconPause" class="w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+            </svg>
+            <span id="playPauseLabel">Play</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-export" class="hidden h-full flex flex-col p-3 sm:p-4 gap-3.5 overflow-y-auto scroll-panel">
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-3.5">
+        <div class="flex flex-col gap-1.5">
+          <label for="presetSelect" class="text-xs font-semibold text-zinc-300">Preset Rasio &amp; Resolusi</label>
+          <select id="presetSelect" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-3 text-xs text-white focus:outline-none focus:border-indigo-500">
+            <option value="720x1280" selected>720x1280 (9:16 Ringan - Default)</option>
+            <option value="1080x1920">1080x1920 (9:16 HD)</option>
+            <option value="1280x720">1280x720 (16:9)</option>
+            <option value="1920x1080">1920x1080 (16:9 HD)</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="flex flex-col gap-1.5">
+            <label for="fpsSelect" class="text-xs font-semibold text-zinc-300">Frame Rate</label>
+            <select id="fpsSelect" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-3 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <option value="30" selected>30 FPS (Default)</option>
+              <option value="60">60 FPS</option>
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="modeSelect" class="text-xs font-semibold text-zinc-300">Mode Render</label>
+            <select id="modeSelect" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-3 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <option value="webcodecs" selected>Mode HD Anti-Lag (VideoEncoder Offline)</option>
+              <option value="mediarecorder">Mode Real-time + Audio (MediaRecorder)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2.5">
+        <button id="btnStartRender" type="button" class="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 active:scale-[0.99] text-sm font-bold text-white shadow-xl shadow-indigo-600/25 transition">
+          Mulai Render Video
+        </button>
+        <button id="btnCancelRender" type="button" class="hidden w-full py-3.5 rounded-2xl bg-rose-600/20 hover:bg-rose-600/30 text-sm font-bold text-rose-300 border border-rose-500/40 active:scale-[0.99] transition">
+          Batalkan Render
+        </button>
+      </div>
+
+      <div id="renderProgressCard" class="hidden bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2.5">
+        <div class="flex items-center justify-between text-xs font-medium">
+          <span id="renderFrameText" class="text-zinc-300 font-mono">Frame 0/0</span>
+          <span id="renderPercentText" class="text-indigo-400 font-mono font-bold">0%</span>
+        </div>
+        <div class="w-full h-3 bg-zinc-950 rounded-full overflow-hidden border border-zinc-800">
+          <div id="renderProgressBar" class="h-full w-0 bg-gradient-to-r from-indigo-500 to-fuchsia-500 transition-all duration-100"></div>
+        </div>
+      </div>
+
+      <div id="exportStatusBox" class="hidden rounded-2xl px-3.5 py-3 text-xs leading-relaxed border"></div>
+
+      <div id="renderResultCard" class="hidden bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-emerald-400">Render Selesai</span>
+          <span id="resultSizeText" class="text-[11px] font-mono text-zinc-400"></span>
+        </div>
+        <video id="resultVideo" controls playsinline class="w-full max-h-[42dvh] rounded-xl bg-black border border-zinc-800"></video>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <button id="btnShareVideo" type="button" class="py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-xs font-bold text-white shadow-lg shadow-indigo-600/25">
+            Simpan ke Galeri / Share
+          </button>
+          <a id="btnDownloadVideo" download="canvas-video-studio.mp4" class="py-3.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-[0.98] text-xs font-bold text-zinc-100 border border-zinc-700 text-center">
+            Download File
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="safe-bottom flex-none bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 px-3 pt-2 grid grid-cols-3 gap-2">
+    <button data-tab="kode" type="button" class="nav-btn py-2.5 rounded-xl flex flex-col items-center justify-center gap-1 text-xs font-semibold bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+      </svg>
+      <span>1. Kode</span>
+    </button>
+    <button data-tab="preview" type="button" class="nav-btn py-2.5 rounded-xl flex flex-col items-center justify-center gap-1 text-xs font-semibold text-zinc-400 hover:text-zinc-200 border border-transparent">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" />
+      </svg>
+      <span>2. Preview</span>
+    </button>
+    <button data-tab="export" type="button" class="nav-btn py-2.5 rounded-xl flex flex-col items-center justify-center gap-1 text-xs font-semibold text-zinc-400 hover:text-zinc-200 border border-transparent">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+      </svg>
+      <span>3. Export</span>
+    </button>
+  </nav>
+
+  <script type="module">
+    let Muxer = null;
+    let ArrayBufferTarget = null;
+    let muxerLoadError = null;
+
+    try {
+      const mod = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5/+esm');
+      Muxer = mod.Muxer;
+      ArrayBufferTarget = mod.ArrayBufferTarget;
+    } catch (err) {
+      muxerLoadError = err;
+    }
+
+    const DEMO_CODE = `function drawScene(ctx, time, audioLevel, width, height) {
+  const minDim = Math.min(width, height);
+  const cx = width * 0.5;
+  const cy = height * 0.5;
+  const progress = (time % 5) / 5;
+  const shiftX = Math.sin(time * 1.4) * minDim * 0.14;
+  const shiftY = Math.cos(time * 1.1) * minDim * 0.14;
+
+  const bgGrad = ctx.createRadialGradient(
+    cx + shiftX,
+    cy + shiftY,
+    minDim * 0.04,
+    cx,
+    cy,
+    Math.max(width, height) * 0.78
+  );
+  bgGrad.addColorStop(0, '#312e81');
+  bgGrad.addColorStop(0.45, '#0f172a');
+  bgGrad.addColorStop(1, '#020617');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, width, height);
+
+  const glowAlpha = 0.22 + audioLevel * 0.55;
+  const pulseGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, minDim * (0.38 + audioLevel * 0.18));
+  pulseGrad.addColorStop(0, 'rgba(139, 92, 246, ' + glowAlpha.toFixed(3) + ')');
+  pulseGrad.addColorStop(0.6, 'rgba(14, 165, 233, ' + (glowAlpha * 0.4).toFixed(3) + ')');
+  pulseGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = pulseGrad;
+  ctx.fillRect(0, 0, width, height);
+
+  const ringRadius = minDim * (0.24 + audioLevel * 0.08);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(time * 0.6);
+
+  ctx.beginPath();
+  ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(56, 189, 248, ' + (0.45 + audioLevel * 0.5).toFixed(3) + ')';
+  ctx.lineWidth = minDim * (0.008 + audioLevel * 0.012);
+  ctx.shadowColor = '#38bdf8';
+  ctx.shadowBlur = minDim * 0.04;
+  ctx.stroke();
+
+  const barCount = 40;
+  for (let i = 0; i < barCount; i++) {
+    const angle = (i / barCount) * Math.PI * 2;
+    const wave = Math.sin(time * 5 + i * 0.65) * 0.5 + 0.5;
+    const barLen = minDim * (0.018 + (audioLevel * 0.09 + 0.015) * wave);
+    const innerR = ringRadius + minDim * 0.025;
+    const outerR = innerR + barLen;
+
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(angle) * innerR, Math.sin(angle) * innerR);
+    ctx.lineTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR);
+    ctx.strokeStyle = i % 2 === 0 ? '#a855f7' : '#22d3ee';
+    ctx.lineWidth = minDim * 0.006;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  const floatY = Math.sin(time * 2.513) * minDim * 0.028;
+  const slideIn = Math.min(1, time / 0.6);
+  const ease = 1 - Math.pow(1 - slideIn, 3);
+  const titleY = cy - minDim * 0.01 + floatY + (1 - ease) * minDim * 0.08;
+
+  ctx.save();
+  ctx.globalAlpha = ease;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const titleSize = Math.round(minDim * (0.072 + audioLevel * 0.01));
+  ctx.font = '800 ' + titleSize + 'px Inter, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(99, 102, 241, 0.85)';
+  ctx.shadowBlur = minDim * 0.03;
+  ctx.fillText('CANVAS STUDIO', cx, titleY);
+
+  const subSize = Math.round(minDim * 0.028);
+  ctx.font = '600 ' + subSize + 'px Inter, sans-serif';
+  ctx.fillStyle = '#cbd5e1';
+  ctx.shadowBlur = 0;
+  ctx.fillText('MOTION GRAPHICS · ' + time.toFixed(2) + 'S', cx, titleY + minDim * 0.075);
+  ctx.restore();
+
+  const barW = width * 0.56;
+  const barH = Math.max(4, minDim * 0.008);
+  const barX = (width - barW) * 0.5;
+  const barY = height * 0.88;
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.fillStyle = '#38bdf8';
+  ctx.fillRect(barX, barY, barW * progress, barH);
+}`;
+
+    const state = {
+      activeTab: 'kode',
+      drawFn: null,
+      duration: 5,
+      presetWidth: 720,
+      presetHeight: 1280,
+      fps: 30,
+      renderMode: 'webcodecs',
+      audioCtx: null,
+      audioBuffer: null,
+      audioLevels: null,
+      audioSource: null,
+      isPlaying: false,
+      currentTime: 0,
+      playStartCtxTime: 0,
+      playStartPerfTime: 0,
+      playStartOffset: 0,
+      rafId: null,
+      isScrubbing: false,
+      wasPlayingBeforeScrub: false,
+      isRendering: false,
+      renderCancelled: false,
+      renderedBlob: null,
+      renderedUrl: null,
+      renderedFileName: 'canvas-video-studio.mp4',
+      renderedMimeType: 'video/mp4'
+    };
+
+    const el = {
+      headerMeta: document.getElementById('headerMeta'),
+      codeBadge: document.getElementById('codeBadge'),
+      tabs: {
+        kode: document.getElementById('tab-kode'),
+        preview: document.getElementById('tab-preview'),
+        export: document.getElementById('tab-export')
+      },
+      navBtns: document.querySelectorAll('.nav-btn'),
+      durationInput: document.getElementById('durationInput'),
+      audioDurationHint: document.getElementById('audioDurationHint'),
+      btnPaste: document.getElementById('btnPaste'),
+      btnClear: document.getElementById('btnClear'),
+      btnDemo: document.getElementById('btnDemo'),
+      btnApply: document.getElementById('btnApply'),
+      codeStatusBox: document.getElementById('codeStatusBox'),
+      codeEditor: document.getElementById('codeEditor'),
+      previewCanvas: document.getElementById('previewCanvas'),
+      previewErrorBox: document.getElementById('previewErrorBox'),
+      audioInput: document.getElementById('audioInput'),
+      audioFileName: document.getElementById('audioFileName'),
+      btnRemoveAudio: document.getElementById('btnRemoveAudio'),
+      seekSlider: document.getElementById('seekSlider'),
+      timeCurrent: document.getElementById('timeCurrent'),
+      timeTotal: document.getElementById('timeTotal'),
+      audioMeterText: document.getElementById('audioMeterText'),
+      btnRestart: document.getElementById('btnRestart'),
+      btnPlayPause: document.getElementById('btnPlayPause'),
+      iconPlay: document.getElementById('iconPlay'),
+      iconPause: document.getElementById('iconPause'),
+      playPauseLabel: document.getElementById('playPauseLabel'),
+      presetSelect: document.getElementById('presetSelect'),
+      fpsSelect: document.getElementById('fpsSelect'),
+      modeSelect: document.getElementById('modeSelect'),
+      btnStartRender: document.getElementById('btnStartRender'),
+      btnCancelRender: document.getElementById('btnCancelRender'),
+      renderProgressCard: document.getElementById('renderProgressCard'),
+      renderFrameText: document.getElementById('renderFrameText'),
+      renderPercentText: document.getElementById('renderPercentText'),
+      renderProgressBar: document.getElementById('renderProgressBar'),
+      exportStatusBox: document.getElementById('exportStatusBox'),
+      renderResultCard: document.getElementById('renderResultCard'),
+      resultSizeText: document.getElementById('resultSizeText'),
+      resultVideo: document.getElementById('resultVideo'),
+      btnShareVideo: document.getElementById('btnShareVideo'),
+      btnDownloadVideo: document.getElementById('btnDownloadVideo')
+    };
+
+    const previewCtx = el.previewCanvas.getContext('2d');
+
+    function formatTime(sec) {
+      const safe = Math.max(0, Number.isFinite(sec) ? sec : 0);
+      const mins = Math.floor(safe / 60);
+      const secs = Math.floor(safe % 60);
+      return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
+
+    function showBox(box, message, type) {
+      box.textContent = message;
+      box.classList.remove(
+        'hidden',
+        'bg-emerald-500/15', 'text-emerald-300', 'border-emerald-500/30',
+        'bg-rose-500/15', 'text-rose-300', 'border-rose-500/30',
+        'bg-amber-500/15', 'text-amber-300', 'border-amber-500/30',
+        'bg-indigo-500/15', 'text-indigo-300', 'border-indigo-500/30'
+      );
+      if (type === 'error') {
+        box.classList.add('bg-rose-500/15', 'text-rose-300', 'border-rose-500/30');
+      } else if (type === 'warn') {
+        box.classList.add('bg-amber-500/15', 'text-amber-300', 'border-amber-500/30');
+      } else if (type === 'info') {
+        box.classList.add('bg-indigo-500/15', 'text-indigo-300', 'border-indigo-500/30');
+      } else {
+        box.classList.add('bg-emerald-500/15', 'text-emerald-300', 'border-emerald-500/30');
+      }
+    }
+
+    function hideBox(box) {
+      box.classList.add('hidden');
+    }
+
+    function setCodeBadge(ok) {
+      el.codeBadge.classList.remove(
+        'bg-emerald-500/15', 'text-emerald-400', 'border-emerald-500/30',
+        'bg-rose-500/15', 'text-rose-400', 'border-rose-500/30'
+      );
+      if (ok) {
+        el.codeBadge.textContent = 'Kaset Siap';
+        el.codeBadge.classList.add('bg-emerald-500/15', 'text-emerald-400', 'border-emerald-500/30');
+      } else {
+        el.codeBadge.textContent = 'Kode Error';
+        el.codeBadge.classList.add('bg-rose-500/15', 'text-rose-400', 'border-rose-500/30');
+      }
+    }
+
+    function updateHeaderMeta() {
+      el.headerMeta.textContent = `${state.presetWidth}x${state.presetHeight} · ${state.fps} FPS · ${state.duration.toFixed(1)}s`;
+    }
+
+    function syncTimelineUI() {
+      el.seekSlider.max = String(state.duration);
+      el.seekSlider.value = String(Math.min(state.currentTime, state.duration));
+      el.timeCurrent.textContent = formatTime(state.currentTime);
+      el.timeTotal.textContent = formatTime(state.duration);
+      const level = getAudioLevelAt(state.currentTime);
+      el.audioMeterText.textContent = `Audio: ${Math.round(level * 100)}%`;
+    }
+
+    function switchTab(tabName) {
+      if (state.isPlaying && tabName !== 'preview') {
+        pausePlayback();
+      }
+      state.activeTab = tabName;
+      Object.keys(el.tabs).forEach((key) => {
+        if (key === tabName) {
+          el.tabs[key].classList.remove('hidden');
+        } else {
+          el.tabs[key].classList.add('hidden');
+        }
+      });
+      el.navBtns.forEach((btn) => {
+        const isCurrent = btn.dataset.tab === tabName;
+        btn.classList.toggle('bg-indigo-600/20', isCurrent);
+        btn.classList.toggle('text-indigo-400', isCurrent);
+        btn.classList.toggle('border-indigo-500/30', isCurrent);
+        btn.classList.toggle('text-zinc-400', !isCurrent);
+        btn.classList.toggle('border-transparent', !isCurrent);
+      });
+      if (tabName === 'preview') {
+        renderPreviewFrame(state.currentTime);
+      }
+    }
+
+    function sanitizeUserCode(raw) {
+      const openScriptRegex = new RegExp('<script\\b[^>]*>', 'gi');
+      const closeScriptRegex = new RegExp('<' + '/script>', 'gi');
+      return raw.replace(openScriptRegex, '').replace(closeScriptRegex, '').trim();
+    }
+
+    function compileCassetteCode(rawCode) {
+      const cleaned = sanitizeUserCode(rawCode);
+      if (!cleaned) {
+        state.drawFn = null;
+        setCodeBadge(false);
+        showBox(el.codeStatusBox, 'Editor kode masih kosong. Tempel fungsi drawScene atau tekan Load Demo.', 'error');
+        return false;
+      }
+
+      try {
+        const factory = new Function(
+          cleaned + '\nreturn typeof drawScene === "function" ? drawScene : null;'
+        );
+        const fn = factory();
+        if (typeof fn !== 'function') {
+          state.drawFn = null;
+          setCodeBadge(false);
+          showBox(
+            el.codeStatusBox,
+            'Fungsi drawScene(ctx, time, audioLevel, width, height) tidak ditemukan. Pastikan nama fungsi tepat.',
+            'error'
+          );
+          return false;
+        }
+
+        const testCanvas = document.createElement('canvas');
+        testCanvas.width = 64;
+        testCanvas.height = 64;
+        const testCtx = testCanvas.getContext('2d');
+        fn(testCtx, 0, 0.5, 64, 64);
+
+        state.drawFn = fn;
+        setCodeBadge(true);
+        hideBox(el.previewErrorBox);
+        showBox(el.codeStatusBox, 'Kode kaset berhasil diterapkan dan siap diputar.', 'success');
+        renderPreviewFrame(state.currentTime);
+        return true;
+      } catch (err) {
+        state.drawFn = null;
+        setCodeBadge(false);
+        showBox(el.codeStatusBox, 'Kesalahan sintaks atau runtime pada kode: ' + err.message, 'error');
+        return false;
+      }
+    }
+
+    function getAudioLevelAt(timeSec) {
+      if (!state.audioLevels || state.audioLevels.length === 0) {
+        return 0;
+      }
+      const pos = Math.max(0, timeSec * 60);
+      const idx0 = Math.floor(pos);
+      const idx1 = Math.min(state.audioLevels.length - 1, idx0 + 1);
+      if (idx0 >= state.audioLevels.length) {
+        return 0;
+      }
+      const frac = pos - idx0;
+      const v0 = state.audioLevels[idx0] || 0;
+      const v1 = state.audioLevels[idx1] || 0;
+      return v0 + (v1 - v0) * frac;
+    }
+
+    function executeDrawScene(ctx, time, audioLevel, width, height) {
+      if (!state.drawFn) {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        return false;
+      }
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, width, height);
+      try {
+        state.drawFn(ctx, time, audioLevel, width, height);
+        return true;
+      } finally {
+        ctx.restore();
+      }
+    }
+
+    function resizePreviewCanvas() {
+      if (el.previewCanvas.width !== state.presetWidth || el.previewCanvas.height !== state.presetHeight) {
+        el.previewCanvas.width = state.presetWidth;
+        el.previewCanvas.height = state.presetHeight;
+      }
+    }
+
+    function renderPreviewFrame(timeSec) {
+      resizePreviewCanvas();
+      const level = getAudioLevelAt(timeSec);
+      try {
+        executeDrawScene(previewCtx, timeSec, level, state.presetWidth, state.presetHeight);
+        hideBox(el.previewErrorBox);
+      } catch (err) {
+        pausePlayback();
+        showBox(el.previewErrorBox, 'Error runtime saat menggambar frame: ' + err.message, 'error');
+      }
+      syncTimelineUI();
+    }
+
+    function getOrCreateAudioContext() {
+      if (!state.audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        state.audioCtx = new AudioCtx();
+      }
+      return state.audioCtx;
+    }
+
+    function decodeAudioBufferCompat(ctx, arrayBuffer) {
+      const cloned = arrayBuffer.slice(0);
+      return new Promise((resolve, reject) => {
+        try {
+          const maybePromise = ctx.decodeAudioData(cloned, resolve, reject);
+          if (maybePromise && typeof maybePromise.then === 'function') {
+            maybePromise.then(resolve).catch(reject);
+          }
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    function extractRmsLevels(audioBuffer) {
+      const sampleRate = audioBuffer.sampleRate;
+      const samplesPerBin = Math.max(1, Math.floor(sampleRate / 60));
+      const totalSamples = audioBuffer.length;
+      const totalBins = Math.ceil(totalSamples / samplesPerBin);
+      const rawRms = new Float32Array(totalBins);
+      const numChannels = audioBuffer.numberOfChannels;
+      const channels = [];
+      for (let c = 0; c < numChannels; c++) {
+        channels.push(audioBuffer.getChannelData(c));
+      }
+
+      let peak = 0;
+      for (let b = 0; b < totalBins; b++) {
+        const start = b * samplesPerBin;
+        const end = Math.min(totalSamples, start + samplesPerBin);
+        let sumSq = 0;
+        let count = 0;
+        for (let i = start; i < end; i++) {
+          let mono = 0;
+          for (let c = 0; c < numChannels; c++) {
+            mono += channels[c][i];
+          }
+          mono /= numChannels;
+          sumSq += mono * mono;
+          count++;
+        }
+        const rms = count > 0 ? Math.sqrt(sumSq / count) : 0;
+        rawRms[b] = rms;
+        if (rms > peak) {
+          peak = rms;
+        }
+      }
+
+      const normalized = new Float32Array(totalBins);
+      if (peak > 0.00001) {
+        for (let b = 0; b < totalBins; b++) {
+          normalized[b] = Math.min(1, rawRms[b] / peak);
+        }
+      }
+      return normalized;
+    }
+
+    async function handleAudioUpload(file) {
+      if (!file) {
+        return;
+      }
+      pausePlayback();
+      el.audioFileName.textContent = 'Memproses audio...';
+      try {
+        const ctx = getOrCreateAudioContext();
+        const arrayBuf = await file.arrayBuffer();
+        const decoded = await decodeAudioBufferCompat(ctx, arrayBuf);
+        state.audioBuffer = decoded;
+        state.audioLevels = extractRmsLevels(decoded);
+        state.duration = Math.max(0.5, Number(decoded.duration.toFixed(2)));
+        el.durationInput.value = String(state.duration);
+        el.audioDurationHint.textContent = `Tersinkron dengan audio (${state.duration.toFixed(2)} dtk)`;
+        el.audioFileName.textContent = file.name;
+        el.btnRemoveAudio.classList.remove('hidden');
+        state.currentTime = 0;
+        updateHeaderMeta();
+        renderPreviewFrame(0);
+      } catch (err) {
+        el.audioFileName.textContent = 'Unggah Audio (MP3/WAV/M4A)';
+        showBox(el.previewErrorBox, 'Gagal membaca file audio: ' + err.message, 'error');
+      }
+    }
+
+    function removeAudio() {
+      pausePlayback();
+      state.audioBuffer = null;
+      state.audioLevels = null;
+      el.audioInput.value = '';
+      el.audioFileName.textContent = 'Unggah Audio (MP3/WAV/M4A)';
+      el.btnRemoveAudio.classList.add('hidden');
+      el.audioDurationHint.textContent = 'Manual (belum ada audio)';
+      state.currentTime = 0;
+      renderPreviewFrame(0);
+    }
+
+    function stopAudioSource() {
+      if (state.audioSource) {
+        try {
+          state.audioSource.onended = null;
+          state.audioSource.stop();
+          state.audioSource.disconnect();
+        } catch (err) {}
+        state.audioSource = null;
+      }
+    }
+
+    function updatePlayButtonUI() {
+      if (state.isPlaying) {
+        el.iconPlay.classList.add('hidden');
+        el.iconPause.classList.remove('hidden');
+        el.playPauseLabel.textContent = 'Pause';
+      } else {
+        el.iconPlay.classList.remove('hidden');
+        el.iconPause.classList.add('hidden');
+        el.playPauseLabel.textContent = 'Play';
+      }
+    }
+
+    async function startPlayback() {
+      if (state.isRendering) {
+        return;
+      }
+      if (state.currentTime >= state.duration - 0.01) {
+        state.currentTime = 0;
+      }
+
+      stopAudioSource();
+
+      if (state.audioBuffer) {
+        const ctx = getOrCreateAudioContext();
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+        const source = ctx.createBufferSource();
+        source.buffer = state.audioBuffer;
+        source.connect(ctx.destination);
+        const offset = Math.min(state.currentTime, Math.max(0, state.audioBuffer.duration - 0.01));
+        state.playStartCtxTime = ctx.currentTime;
+        state.playStartOffset = state.currentTime;
+        source.start(0, offset);
+        state.audioSource = source;
+      } else {
+        state.playStartPerfTime = performance.now();
+        state.playStartOffset = state.currentTime;
+      }
+
+      state.isPlaying = true;
+      updatePlayButtonUI();
+      schedulePlaybackTick();
+    }
+
+    function pausePlayback() {
+      state.isPlaying = false;
+      if (state.rafId !== null) {
+        cancelAnimationFrame(state.rafId);
+        state.rafId = null;
+      }
+      stopAudioSource();
+      updatePlayButtonUI();
+    }
+
+    function schedulePlaybackTick() {
+      if (!state.isPlaying) {
+        return;
+      }
+      state.rafId = requestAnimationFrame(() => {
+        if (!state.isPlaying) {
+          return;
+        }
+        let elapsed = 0;
+        if (state.audioBuffer && state.audioCtx) {
+          elapsed = state.audioCtx.currentTime - state.playStartCtxTime;
+        } else {
+          elapsed = (performance.now() - state.playStartPerfTime) / 1000;
+        }
+        const nextTime = state.playStartOffset + elapsed;
+        if (nextTime >= state.duration) {
+          state.currentTime = state.duration;
+          pausePlayback();
+          renderPreviewFrame(state.currentTime);
+          return;
+        }
+        state.currentTime = nextTime;
+        renderPreviewFrame(state.currentTime);
+        schedulePlaybackTick();
+      });
+    }
+
+    function setRenderUIState(rendering) {
+      state.isRendering = rendering;
+      el.btnStartRender.disabled = rendering;
+      el.btnStartRender.classList.toggle('opacity-50', rendering);
+      el.btnCancelRender.classList.toggle('hidden', !rendering);
+      el.renderProgressCard.classList.toggle('hidden', !rendering);
+      el.presetSelect.disabled = rendering;
+      el.fpsSelect.disabled = rendering;
+      el.modeSelect.disabled = rendering;
+    }
+
+    function updateRenderProgress(frameIndex, totalFrames) {
+      const safeTotal = Math.max(1, totalFrames);
+      const pct = Math.min(100, Math.round((frameIndex / safeTotal) * 100));
+      el.renderFrameText.textContent = `Frame ${frameIndex}/${safeTotal}`;
+      el.renderPercentText.textContent = `${pct}%`;
+      el.renderProgressBar.style.width = `${pct}%`;
+    }
+
+    function clearPreviousRenderResult() {
+      if (state.renderedUrl) {
+        URL.revokeObjectURL(state.renderedUrl);
+        state.renderedUrl = null;
+      }
+      state.renderedBlob = null;
+      el.resultVideo.removeAttribute('src');
+      el.renderResultCard.classList.add('hidden');
+    }
+
+    function showRenderResult(blob, fileName, mimeType) {
+      clearPreviousRenderResult();
+      state.renderedBlob = blob;
+      state.renderedFileName = fileName;
+      state.renderedMimeType = mimeType;
+      state.renderedUrl = URL.createObjectURL(blob);
+      el.resultVideo.src = state.renderedUrl;
+      el.btnDownloadVideo.href = state.renderedUrl;
+      el.btnDownloadVideo.download = fileName;
+      const mb = (blob.size / (1024 * 1024)).toFixed(2);
+      el.resultSizeText.textContent = `${mb} MB`;
+      el.renderResultCard.classList.remove('hidden');
+    }
+
+    async function findSupportedVideoConfig(width, height, fps) {
+      const codecs = ['avc1.4d002a', 'avc1.42001f', 'avc1.4d0033', 'avc1.640028'];
+      const pixelArea = width * height;
+      const baseBitrate = pixelArea > 1280 * 720 ? 8000000 : 5000000;
+      const bitrate = fps >= 60 ? Math.round(baseBitrate * 1.4) : baseBitrate;
+
+      for (const codec of codecs) {
+        const config = {
+          codec,
+          width,
+          height,
+          bitrate,
+          framerate: fps
+        };
+        try {
+          const support = await VideoEncoder.isConfigSupported(config);
+          if (support && support.supported) {
+            return support.config || config;
+          }
+        } catch (err) {}
+      }
+      return null;
+    }
+
+    async function checkAudioEncoderSupport(audioBuffer) {
+      if (!audioBuffer || typeof AudioEncoder === 'undefined') {
+        return null;
+      }
+      const sampleRate = audioBuffer.sampleRate;
+      const numberOfChannels = Math.min(2, audioBuffer.numberOfChannels);
+      const config = {
+        codec: 'mp4a.40.2',
+        sampleRate,
+        numberOfChannels,
+        bitrate: 128000
+      };
+      try {
+        const support = await AudioEncoder.isConfigSupported(config);
+        if (support && support.supported) {
+          return support.config || config;
+        }
+      } catch (err) {}
+      return null;
+    }
+
+    async function encodeAudioBufferToEncoder(audioEncoder, audioBuffer, durationSec, numberOfChannels) {
+      const sampleRate = audioBuffer.sampleRate;
+      const totalSamples = Math.min(audioBuffer.length, Math.floor(durationSec * sampleRate));
+      const chunkSize = 1024;
+      const channelData = [];
+      for (let c = 0; c < numberOfChannels; c++) {
+        channelData.push(audioBuffer.getChannelData(Math.min(c, audioBuffer.numberOfChannels - 1)));
+      }
+
+      for (let offset = 0; offset < totalSamples; offset += chunkSize) {
+        if (state.renderCancelled) {
+          return;
+        }
+        const frames = Math.min(chunkSize, totalSamples - offset);
+        const planar = new Float32Array(frames * numberOfChannels);
+        for (let c = 0; c < numberOfChannels; c++) {
+          planar.set(channelData[c].subarray(offset, offset + frames), c * frames);
+        }
+        const timestampUs = Math.round((offset / sampleRate) * 1000000);
+        const audioData = new AudioData({
+          format: 'f32-planar',
+          sampleRate,
+          numberOfFrames: frames,
+          numberOfChannels,
+          timestamp: timestampUs,
+          data: planar
+        });
+        audioEncoder.encode(audioData);
+        audioData.close();
+
+        if ((offset / chunkSize) % 24 === 0) {
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      }
+    }
+
+    async function runWebCodecsRender() {
+      if (muxerLoadError || !Muxer || !ArrayBufferTarget) {
+        throw new Error('Library mp4-muxer gagal dimuat dari CDN. Periksa koneksi internet Anda.');
+      }
+      if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') {
+        throw new Error('WebCodecs VideoEncoder tidak didukung oleh browser ini. Gunakan Safari iOS 16.4+ atau pilih Mode Real-time (MediaRecorder).');
+      }
+
+      const width = state.presetWidth;
+      const height = state.presetHeight;
+      const fps = state.fps;
+      const duration = state.duration;
+      const totalFrames = Math.max(1, Math.ceil(duration * fps));
+
+      const videoConfig = await findSupportedVideoConfig(width, height, fps);
+      if (!videoConfig) {
+        throw new Error('Tidak ada profil codec H.264 (avc1) yang didukung untuk resolusi ' + width + 'x' + height + '.');
+      }
+
+      const audioConfig = await checkAudioEncoderSupport(state.audioBuffer);
+      const hasAudioTrack = Boolean(state.audioBuffer && audioConfig);
+
+      if (state.audioBuffer && !audioConfig) {
+        showBox(el.exportStatusBox, 'Mode video-only (Safari iOS): gabungkan audio di CapCut/aplikasi edit', 'info');
+      } else {
+        hideBox(el.exportStatusBox);
+      }
+
+      const muxerOptions = {
+        target: new ArrayBufferTarget(),
+        video: {
+          codec: 'avc',
+          width,
+          height
+        },
+        fastStart: 'in-memory',
+        firstTimestampBehavior: 'offset'
+      };
+
+      if (hasAudioTrack) {
+        muxerOptions.audio = {
+          codec: 'aac',
+          numberOfChannels: audioConfig.numberOfChannels,
+          sampleRate: audioConfig.sampleRate
+        };
+      }
+
+      const muxer = new Muxer(muxerOptions);
+      let fatalEncoderError = null;
+
+      const videoEncoder = new VideoEncoder({
+        output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+        error: (err) => {
+          fatalEncoderError = err;
+        }
+      });
+      videoEncoder.configure(videoConfig);
+
+      let audioEncoder = null;
+      if (hasAudioTrack) {
+        audioEncoder = new AudioEncoder({
+          output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+          error: (err) => {
+            fatalEncoderError = err;
+          }
+        });
+        audioEncoder.configure(audioConfig);
+      }
+
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = width;
+      offCanvas.height = height;
+      const offCtx = offCanvas.getContext('2d', { alpha: false });
+
+      try {
+        for (let i = 0; i < totalFrames; i++) {
+          if (state.renderCancelled) {
+            throw new Error('CANCELLED');
+          }
+          if (fatalEncoderError) {
+            throw fatalEncoderError;
+          }
+
+          while (videoEncoder.encodeQueueSize > 4) {
+            if (state.renderCancelled) {
+              throw new Error('CANCELLED');
+            }
+            if (fatalEncoderError) {
+              throw fatalEncoderError;
+            }
+            await new Promise((r) => setTimeout(r, 15));
+          }
+
+          const timeSec = i / fps;
+          const level = getAudioLevelAt(timeSec);
+          executeDrawScene(offCtx, timeSec, level, width, height);
+
+          const timestampUs = Math.round((i / fps) * 1000000);
+          const frameDurationUs = Math.round((1 / fps) * 1000000);
+          const frame = new VideoFrame(offCanvas, {
+            timestamp: timestampUs,
+            duration: frameDurationUs
+          });
+
+          const keyFrame = i % (fps * 2) === 0;
+          videoEncoder.encode(frame, { keyFrame });
+          frame.close();
+
+          updateRenderProgress(i + 1, totalFrames);
+
+          if (i % 3 === 0) {
+            await new Promise((r) => setTimeout(r, 0));
+          }
+        }
+
+        if (hasAudioTrack && audioEncoder) {
+          await encodeAudioBufferToEncoder(
+            audioEncoder,
+            state.audioBuffer,
+            duration,
+            audioConfig.numberOfChannels
+          );
+          if (state.renderCancelled) {
+            throw new Error('CANCELLED');
+          }
+          await audioEncoder.flush();
+          audioEncoder.close();
+        }
+
+        if (fatalEncoderError) {
+          throw fatalEncoderError;
+        }
+
+        await videoEncoder.flush();
+        videoEncoder.close();
+        muxer.finalize();
+
+        const buffer = muxer.target.buffer;
+        const blob = new Blob([buffer], { type: 'video/mp4' });
+        showRenderResult(blob, `canvas-studio-${width}x${height}.mp4`, 'video/mp4');
+
+        if (!state.audioBuffer || hasAudioTrack) {
+          showBox(el.exportStatusBox, 'Render MP4 HD selesai dengan sukses!', 'success');
+        }
+      } catch (err) {
+        try {
+          if (videoEncoder.state !== 'closed') {
+            videoEncoder.close();
+          }
+        } catch (e) {}
+        try {
+          if (audioEncoder && audioEncoder.state !== 'closed') {
+            audioEncoder.close();
+          }
+        } catch (e) {}
+        throw err;
+      }
+    }
+
+    function pickMediaRecorderMimeType() {
+      const candidates = [
+        'video/mp4;codecs=avc1,mp4a.40.2',
+        'video/mp4',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+      ];
+      if (typeof MediaRecorder === 'undefined') {
+        return null;
+      }
+      for (const mime of candidates) {
+        if (MediaRecorder.isTypeSupported(mime)) {
+          return mime;
+        }
+      }
+      return '';
+    }
+
+    async function runMediaRecorderRender() {
+      if (typeof MediaRecorder === 'undefined') {
+        throw new Error('MediaRecorder tidak didukung oleh browser ini.');
+      }
+
+      const width = state.presetWidth;
+      const height = state.presetHeight;
+      const fps = state.fps;
+      const duration = state.duration;
+      const totalFrames = Math.max(1, Math.ceil(duration * fps));
+
+      const recCanvas = document.createElement('canvas');
+      recCanvas.width = width;
+      recCanvas.height = height;
+      const recCtx = recCanvas.getContext('2d', { alpha: false });
+
+      if (typeof recCanvas.captureStream !== 'function') {
+        throw new Error('canvas.captureStream tidak didukung oleh browser ini.');
+      }
+
+      const canvasStream = recCanvas.captureStream(fps);
+      const tracks = [...canvasStream.getVideoTracks()];
+      let recAudioSource = null;
+
+      if (state.audioBuffer) {
+        const ctx = getOrCreateAudioContext();
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+        const streamDest = ctx.createMediaStreamDestination();
+        recAudioSource = ctx.createBufferSource();
+        recAudioSource.buffer = state.audioBuffer;
+        recAudioSource.connect(streamDest);
+        recAudioSource.connect(ctx.destination);
+        streamDest.stream.getAudioTracks().forEach((t) => tracks.push(t));
+      }
+
+      const combinedStream = new MediaStream(tracks);
+      const chosenMime = pickMediaRecorderMimeType();
+      const recorderOptions = chosenMime ? { mimeType: chosenMime, videoBitsPerSecond: 6000000 } : { videoBitsPerSecond: 6000000 };
+
+      const recorder = new MediaRecorder(combinedStream, recorderOptions);
+      const chunks = [];
+      const finalMime = recorder.mimeType || chosenMime || 'video/mp4';
+
+      showBox(el.exportStatusBox, 'Merekam secara real-time... Biarkan tab tetap terbuka hingga selesai.', 'info');
+
+      await new Promise((resolve, reject) => {
+        let animId = null;
+        let finished = false;
+        const startTime = performance.now();
+
+        function cleanup() {
+          if (animId !== null) {
+            cancelAnimationFrame(animId);
+            animId = null;
+          }
+          if (recAudioSource) {
+            try {
+              recAudioSource.stop();
+              recAudioSource.disconnect();
+            } catch (e) {}
+            recAudioSource = null;
+          }
+          tracks.forEach((t) => {
+            try {
+              t.stop();
+            } catch (e) {}
+          });
+        }
+
+        recorder.ondataavailable = (ev) => {
+          if (ev.data && ev.data.size > 0) {
+            chunks.push(ev.data);
+          }
+        };
+
+        recorder.onerror = (ev) => {
+          if (!finished) {
+            finished = true;
+            cleanup();
+            reject(ev.error || new Error('MediaRecorder mengalami kesalahan.'));
+          }
+        };
+
+        recorder.onstop = () => {
+          if (finished) {
+            return;
+          }
+          finished = true;
+          cleanup();
+          if (state.renderCancelled) {
+            reject(new Error('CANCELLED'));
+            return;
+          }
+          const blob = new Blob(chunks, { type: finalMime });
+          const ext = finalMime.includes('webm') ? 'webm' : 'mp4';
+          showRenderResult(blob, `canvas-studio-${width}x${height}.${ext}`, finalMime);
+          showBox(el.exportStatusBox, 'Rekaman real-time selesai!', 'success');
+          resolve();
+        };
+
+        if (recAudioSource) {
+          recAudioSource.start(0, 0);
+        }
+        recorder.start(250);
+
+        function tick() {
+          if (state.renderCancelled) {
+            if (recorder.state !== 'inactive') {
+              recorder.stop();
+            }
+            return;
+          }
+          const elapsed = (performance.now() - startTime) / 1000;
+          const clamped = Math.min(duration, elapsed);
+          try {
+            executeDrawScene(recCtx, clamped, getAudioLevelAt(clamped), width, height);
+          } catch (err) {
+            if (recorder.state !== 'inactive') {
+              recorder.stop();
+            }
+            if (!finished) {
+              finished = true;
+              cleanup();
+              reject(err);
+            }
+            return;
+          }
+
+          const approxFrame = Math.min(totalFrames, Math.floor(clamped * fps));
+          updateRenderProgress(approxFrame, totalFrames);
+
+          if (elapsed >= duration) {
+            updateRenderProgress(totalFrames, totalFrames);
+            if (recorder.state !== 'inactive') {
+              recorder.stop();
+            }
+            return;
+          }
+          animId = requestAnimationFrame(tick);
+        }
+
+        animId = requestAnimationFrame(tick);
+      });
+    }
+
+    async function handleStartRender() {
+      if (state.isRendering) {
+        return;
+      }
+      if (state.isPlaying) {
+        pausePlayback();
+      }
+      if (!state.drawFn) {
+        const ok = compileCassetteCode(el.codeEditor.value);
+        if (!ok) {
+          showBox(el.exportStatusBox, 'Perbaiki error pada kode kaset terlebih dahulu sebelum merender.', 'error');
+          return;
+        }
+      }
+
+      clearPreviousRenderResult();
+      hideBox(el.exportStatusBox);
+      state.renderCancelled = false;
+      setRenderUIState(true);
+      updateRenderProgress(0, Math.max(1, Math.ceil(state.duration * state.fps)));
+
+      try {
+        if (state.renderMode === 'webcodecs') {
+          await runWebCodecsRender();
+        } else {
+          await runMediaRecorderRender();
+        }
+      } catch (err) {
+        if (err && err.message === 'CANCELLED') {
+          showBox(el.exportStatusBox, 'Render dibatalkan oleh pengguna.', 'warn');
+        } else {
+          const msg = err && err.message ? err.message : 'Terjadi kesalahan saat proses render.';
+          showBox(el.exportStatusBox, 'Render gagal: ' + msg, 'error');
+        }
+      } finally {
+        setRenderUIState(false);
+      }
+    }
+
+    el.navBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        switchTab(btn.dataset.tab);
+      });
+    });
+
+    el.durationInput.addEventListener('change', () => {
+      const val = parseFloat(el.durationInput.value);
+      if (Number.isFinite(val) && val >= 0.5 && val <= 300) {
+        state.duration = val;
+      } else {
+        state.duration = 5;
+        el.durationInput.value = '5';
+      }
+      if (state.currentTime > state.duration) {
+        state.currentTime = state.duration;
+      }
+      updateHeaderMeta();
+      syncTimelineUI();
+    });
+
+    el.btnPaste.addEventListener('click', async () => {
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.readText) {
+          throw new Error('Clipboard API tidak tersedia');
+        }
+        const text = await navigator.clipboard.readText();
+        if (!text) {
+          showBox(el.codeStatusBox, 'Clipboard kosong. Salin kode terlebih dahulu lalu coba lagi.', 'warn');
+          return;
+        }
+        el.codeEditor.value = text;
+        showBox(el.codeStatusBox, 'Kode berhasil ditempel dari clipboard. Tekan "Terapkan Kode".', 'info');
+      } catch (err) {
+        showBox(
+          el.codeStatusBox,
+          'Safari iOS membatasi baca clipboard otomatis. Ketuk di dalam area kotak kode di bawah lalu pilih "Tempel / Paste".',
+          'warn'
+        );
+      }
+    });
+
+    el.btnClear.addEventListener('click', () => {
+      el.codeEditor.value = '';
+      hideBox(el.codeStatusBox);
+      el.codeEditor.focus();
+    });
+
+    el.btnDemo.addEventListener('click', () => {
+      el.codeEditor.value = DEMO_CODE;
+      if (!state.audioBuffer) {
+        state.duration = 5;
+        el.durationInput.value = '5';
+        updateHeaderMeta();
+        syncTimelineUI();
+      }
+      compileCassetteCode(DEMO_CODE);
+    });
+
+    el.btnApply.addEventListener('click', () => {
+      compileCassetteCode(el.codeEditor.value);
+    });
+
+    el.audioInput.addEventListener('change', (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (file) {
+        handleAudioUpload(file);
+      }
+    });
+
+    el.btnRemoveAudio.addEventListener('click', removeAudio);
+
+    el.btnPlayPause.addEventListener('click', () => {
+      if (state.isPlaying) {
+        pausePlayback();
+      } else {
+        startPlayback();
+      }
+    });
+
+    el.btnRestart.addEventListener('click', () => {
+      const wasPlaying = state.isPlaying;
+      pausePlayback();
+      state.currentTime = 0;
+      renderPreviewFrame(0);
+      if (wasPlaying) {
+        startPlayback();
+      }
+    });
+
+    function onScrubStart() {
+      if (!state.isScrubbing) {
+        state.isScrubbing = true;
+        state.wasPlayingBeforeScrub = state.isPlaying;
+        if (state.isPlaying) {
+          pausePlayback();
+        }
+      }
+    }
+
+    function onScrubMove() {
+      const val = parseFloat(el.seekSlider.value);
+      state.currentTime = Number.isFinite(val) ? val : 0;
+      renderPreviewFrame(state.currentTime);
+    }
+
+    function onScrubEnd() {
+      if (state.isScrubbing) {
+        state.isScrubbing = false;
+        if (state.wasPlayingBeforeScrub) {
+          startPlayback();
+        }
+      }
+    }
+
+    el.seekSlider.addEventListener('pointerdown', onScrubStart);
+    el.seekSlider.addEventListener('touchstart', onScrubStart, { passive: true });
+    el.seekSlider.addEventListener('input', onScrubMove);
+    el.seekSlider.addEventListener('change', onScrubEnd);
+    el.seekSlider.addEventListener('pointerup', onScrubEnd);
+    el.seekSlider.addEventListener('touchend', onScrubEnd);
+
+    el.presetSelect.addEventListener('change', () => {
+      const parts = el.presetSelect.value.split('x');
+      state.presetWidth = parseInt(parts[0], 10);
+      state.presetHeight = parseInt(parts[1], 10);
+      updateHeaderMeta();
+      renderPreviewFrame(state.currentTime);
+    });
+
+    el.fpsSelect.addEventListener('change', () => {
+      state.fps = parseInt(el.fpsSelect.value, 10);
+      updateHeaderMeta();
+    });
+
+    el.modeSelect.addEventListener('change', () => {
+      state.renderMode = el.modeSelect.value;
+    });
+
+    el.btnStartRender.addEventListener('click', handleStartRender);
+
+    el.btnCancelRender.addEventListener('click', () => {
+      state.renderCancelled = true;
+      showBox(el.exportStatusBox, 'Membatalkan proses render...', 'warn');
+    });
+
+    el.btnShareVideo.addEventListener('click', async () => {
+      if (!state.renderedBlob) {
+        return;
+      }
+      try {
+        const file = new File([state.renderedBlob], state.renderedFileName, {
+          type: state.renderedMimeType
+        });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Canvas Video Studio'
+          });
+        } else {
+          showBox(
+            el.exportStatusBox,
+            'Fitur Share File tidak didukung di browser ini. Silakan gunakan tombol "Download File".',
+            'warn'
+          );
+        }
+      } catch (err) {
+        if (err && err.name !== 'AbortError') {
+          showBox(
+            el.exportStatusBox,
+            'Gagal membuka menu Share: ' + err.message + '. Gunakan tombol "Download File".',
+            'warn'
+          );
+        }
+      }
+    });
+
+    el.codeEditor.value = DEMO_CODE;
+    compileCassetteCode(DEMO_CODE);
+    updateHeaderMeta();
+    syncTimelineUI();
+    switchTab('kode');
+  </script>
+</body>
+</html>
