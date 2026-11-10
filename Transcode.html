@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FFmpeg.wasm MPEG-TS Transcoder &amp; Remuxer</title>
+  <!-- Aktifkan header COOP/COEP di GitHub Pages agar multi-thread (SharedArrayBuffer) berjalan -->
+  <script src="coi-serviceworker.js"></script>
+  <!-- Tailwind CSS & Font Inter -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen px-4 py-6 sm:py-8">
+  <div class="max-w-4xl mx-auto space-y-5">
+
+    <!-- Header -->
+    <header class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+          FFmpeg.wasm MPEG-TS Transcoder
+        </h1>
+        <p class="text-sm text-slate-400 mt-1">
+          Transcode &amp; Remux video ke wadah <code class="text-sky-400 font-mono">MPEG-TS</code> (<code class="text-sky-400 font-mono">.mp4</code> / <code class="text-sky-400 font-mono">.ts</code>) langsung di browser tanpa server.
+        </p>
+      </div>
+      <div id="threadBadge" class="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-full text-xs font-semibold border border-amber-500/40 bg-amber-500/10 text-amber-300 shrink-0">
+        <span class="w-2 h-2 rounded-full bg-current"></span>
+        <span id="threadText">Mengecek Mode Thread...</span>
+      </div>
+    </header>
+
+    <!-- Card 1: Pilih Video Sumber -->
+    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h2 class="text-base font-semibold text-slate-100">1. Pilih Video Sumber</h2>
+        <button type="button" id="btnPreload" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+          Muat Core FFmpeg
+        </button>
+      </div>
+
+      <label id="dropzone" for="fileInput" class="block border-2 border-dashed border-slate-700 hover:border-sky-400 hover:bg-sky-500/5 rounded-xl p-7 text-center cursor-pointer transition">
+        <input type="file" id="fileInput" class="hidden" accept="video/*,.mp4,.mov,.mkv,.webm,.ts,.avi" />
+        <div class="text-sm sm:text-base">
+          <strong class="text-sky-400 font-semibold">Klik untuk pilih video</strong> atau tarik &amp; lepas file ke sini
+        </div>
+        <p class="text-xs text-slate-400 mt-1.5">
+          Mendukung MP4, MOV, MKV, WebM, AVI, TS. Aman untuk video pendek/sosial media (&lt; 250 MB).
+        </p>
+      </label>
+
+      <!-- Info & Preview Video Sumber -->
+      <div id="sourceInfo" class="hidden mt-4 space-y-3">
+        <video id="sourcePreview" controls muted playsinline class="w-full max-h-64 rounded-xl bg-black border border-slate-800"></video>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400">Nama File</div>
+            <div id="srcName" class="text-sm font-semibold text-slate-100 mt-0.5 break-words">-</div>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400">Ukuran</div>
+            <div id="srcSize" class="text-sm font-semibold text-slate-100 mt-0.5">-</div>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400">Resolusi Asli</div>
+            <div id="srcRes" class="text-sm font-semibold text-slate-100 mt-0.5">-</div>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+            <div class="text-[11px] uppercase tracking-wider text-slate-400">Durasi</div>
+            <div id="srcDur" class="text-sm font-semibold text-slate-100 mt-0.5">-</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Card 2: Pengaturan Mode & Parameter Output -->
+    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
+      <h2 class="text-base font-semibold text-slate-100">2. Mode &amp; Parameter Output MPEG-TS</h2>
+
+      <!-- Pilihan Mode Tab -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button type="button" id="tabRemux" class="text-left p-3.5 rounded-xl border border-sky-400 bg-sky-500/10 transition">
+          <span class="block font-bold text-sm text-white">Remux Cepat (-c copy)</span>
+          <span class="block text-xs text-slate-400 mt-1">
+            Tanpa render ulang piksel. Menghapus atom MP4 &amp; membungkus ulang ke MPEG-TS dalam ~1 detik.
+          </span>
+        </button>
+        <button type="button" id="tabTranscode" class="text-left p-3.5 rounded-xl border border-slate-800 bg-slate-950 hover:border-slate-700 transition">
+          <span class="block font-bold text-sm text-white">Full Transcode (libx264)</span>
+          <span class="block text-xs text-slate-400 mt-1">
+            Encode ulang H.264. Ubah resolusi, FPS, CRF/bitrate, &amp; hash video secara menyeluruh.
+          </span>
+        </button>
+      </div>
+
+      <!-- Opsi Khusus Full Transcode -->
+      <div id="transcodeOptions" class="hidden space-y-3 pt-1">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label for="optResolution" class="block text-xs font-medium text-slate-400 mb-1.5">Resolusi Output</label>
+            <select id="optResolution" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none">
+              <option value="orig">Pertahankan Asli</option>
+              <option value="1080">1080p (Sisi pendek 1080px)</option>
+              <option value="720">720p (Sisi pendek 720px)</option>
+              <option value="480">480p (Sisi pendek 480px)</option>
+              <option value="custom">Custom (Lebar × Tinggi)</option>
+            </select>
+          </div>
+          <div>
+            <label for="optFps" class="block text-xs font-medium text-slate-400 mb-1.5">Frame Rate (FPS)</label>
+            <select id="optFps" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none">
+              <option value="orig">Pertahankan Asli</option>
+              <option value="60">60 FPS</option>
+              <option value="30">30 FPS</option>
+              <option value="24">24 FPS</option>
+            </select>
+          </div>
+          <div>
+            <label for="optPreset" class="block text-xs font-medium text-slate-400 mb-1.5">Preset Kecepatan x264</label>
+            <select id="optPreset" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none">
+              <option value="ultrafast">ultrafast (Paling cepat)</option>
+              <option value="superfast">superfast</option>
+              <option value="veryfast" selected>veryfast (Seimbang)</option>
+              <option value="faster">faster</option>
+              <option value="medium">medium (Kompresi rapat)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dimensi Custom -->
+        <div id="customResRow" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="customW" class="block text-xs font-medium text-slate-400 mb-1.5">Lebar (Width, genap)</label>
+            <input type="number" id="customW" value="1080" min="16" step="2" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none" />
+          </div>
+          <div>
+            <label for="customH" class="block text-xs font-medium text-slate-400 mb-1.5">Tinggi (Height, genap)</label>
+            <input type="number" id="customH" value="1920" min="16" step="2" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Kontrol CRF / Bitrate -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="optRateMode" class="block text-xs font-medium text-slate-400 mb-1.5">Kontrol Kualitas / Bitrate Video</label>
+            <select id="optRateMode" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none">
+              <option value="crf">CRF (Kualitas Konstan)</option>
+              <option value="bitrate">Target Bitrate (kbps)</option>
+            </select>
+          </div>
+          <div id="crfField">
+            <label for="optCrf" class="block text-xs font-medium text-slate-400 mb-1.5">Nilai CRF (18 = Tajam, 23 = Standar, 28 = Ringan)</label>
+            <div class="flex items-center gap-3 pt-1">
+              <input type="range" id="optCrf" min="14" max="35" value="23" class="flex-1 accent-sky-400 cursor-pointer" />
+              <span id="crfLabel" class="w-10 text-right font-mono text-sm font-bold text-sky-400">23</span>
+            </div>
+          </div>
+          <div id="bitrateField" class="hidden">
+            <label for="optBitrate" class="block text-xs font-medium text-slate-400 mb-1.5">Target Bitrate Video (kbps)</label>
+            <input type="number" id="optBitrate" value="4000" min="200" max="50000" step="100" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Opsi Audio & Ekstensi -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label for="optAudio" class="block text-xs font-medium text-slate-400 mb-1.5">Pengaturan Audio</label>
+          <select id="optAudio" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none">
+            <option value="copy">Salin Audio Asli (-c:a copy)</option>
+            <option value="aac128">Encode Ulang AAC 128k</option>
+            <option value="aac192">Encode Ulang AAC 192k</option>
+            <option value="none">Hapus Audio (-an / Tanpa Suara)</option>
+          </select>
+        </div>
+        <div>
+          <label for="optExt" class="block text-xs font-medium text-slate-400 mb-1.5">Ekstensi File Download</label>
+          <select id="optExt" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none">
+            <option value=".mp4">.mp4 (Wadah MPEG-TS, nama .mp4)</option>
+            <option value=".ts">.ts (Ekstensi standar MPEG-TS)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Kontrol Tag SDT (FFmpeg / Service01) -->
+      <div class="border-t border-slate-800 pt-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label for="optSdtMode" class="block text-xs font-medium text-slate-400 mb-1.5">Tag SDT (PID 0x0011)</label>
+            <select id="optSdtMode" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none">
+              <option value="default">Default FFmpeg ("FFmpeg" / "Service01")</option>
+              <option value="custom">Ubah Teks Provider &amp; Service</option>
+              <option value="strip">Hapus Total Tag SDT (Null Packet 0x1FFF)</option>
+            </select>
+          </div>
+          <div id="sdtProviderField" class="hidden">
+            <label for="sdtProvider" class="block text-xs font-medium text-slate-400 mb-1.5">Service Provider</label>
+            <input type="text" id="sdtProvider" value="CustomMux" maxlength="40" placeholder="Contoh: Studio01" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none" />
+          </div>
+          <div id="sdtServiceField" class="hidden">
+            <label for="sdtService" class="block text-xs font-medium text-slate-400 mb-1.5">Service Name</label>
+            <input type="text" id="sdtService" value="HDVideo" maxlength="40" placeholder="Contoh: Channel01" class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-sm text-slate-100 focus:border-sky-400 focus:outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Pratinjau Perintah FFmpeg -->
+      <div>
+        <span class="block text-xs font-medium text-slate-400 mb-1.5">Pratinjau Perintah FFmpeg:</span>
+        <div id="cmdPreview" class="bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-xs text-sky-300 break-all"></div>
+      </div>
+    </section>
+
+    <!-- Card 3: Eksekusi & Log -->
+    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div id="coreStatusText" class="text-sm text-slate-400">
+          Core FFmpeg belum dimuat (otomatis diunduh ~30 MB saat mulai).
+        </div>
+        <button type="button" id="btnProcess" disabled class="px-5 py-2.5 rounded-xl text-sm font-bold bg-sky-400 hover:bg-sky-300 text-slate-950 transition disabled:opacity-45 disabled:cursor-not-allowed">
+          Proses Video Sekarang
+        </button>
+      </div>
+
+      <div id="progressBox" class="hidden mt-4">
+        <div class="w-full h-2.5 bg-slate-950 border border-slate-800 rounded-full overflow-hidden">
+          <div id="progressFill" class="h-full w-0 bg-gradient-to-r from-sky-400 to-emerald-400 transition-all duration-200"></div>
+        </div>
+        <div class="flex justify-between text-xs text-slate-400 mt-1.5">
+          <span id="progressLabel">Mempersiapkan...</span>
+          <span id="progressPct" class="font-mono">0%</span>
+        </div>
+      </div>
+
+      <pre id="logBox" class="hidden mt-3 bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-xs text-slate-300 whitespace-pre-wrap max-h-48 overflow-y-auto"></pre>
+    </section>
+
+    <!-- Card 4: Hasil & Verifikasi Struktur MPEG-TS -->
+    <section id="resultCard" class="hidden bg-slate-900/90 border border-emerald-500/40 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
+      <h2 class="text-base font-semibold text-emerald-300">4. Hasil Output &amp; Verifikasi Struktur MPEG-TS</h2>
+      <pre id="verifySummary" class="bg-slate-950 border border-emerald-500/30 rounded-xl p-3.5 font-mono text-xs text-slate-200 whitespace-pre-wrap overflow-x-auto"></pre>
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <p class="text-xs text-slate-400 max-w-xl">
+          Catatan: Player browser standar tidak selalu memutar wadah MPEG-TS langsung via tag &lt;video&gt;, namun file ini valid untuk di-upload atau diputar di VLC/MPV.
+        </p>
+        <a id="downloadLink" class="inline-block px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-400 hover:bg-emerald-300 text-slate-950 transition cursor-pointer no-underline">
+          Download Hasil
+        </a>
+      </div>
+    </section>
+
+  </div>
+
+  <script type="module">
+    import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+    import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+    const CORE_ST_BASE = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
+    const CORE_MT_BASE = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.6/dist/esm';
+    const WORKER_ESM_URL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/worker.js';
+
+    // State aplikasi
+    let ffmpeg = null;
+    let isCoreLoaded = false;
+    let isLoadingCore = false;
+    let isProcessing = false;
+    let mode = 'remux'; // 'remux' | 'transcode'
+    let selectedFile = null;
+    let lastOutputUrl = null;
+    let lastSourcePreviewUrl = null;
+
+    // Elemen DOM
+    const threadBadge = document.getElementById('threadBadge');
+    const threadText = document.getElementById('threadText');
+    const btnPreload = document.getElementById('btnPreload');
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
+    const sourceInfo = document.getElementById('sourceInfo');
+    const sourcePreview = document.getElementById('sourcePreview');
+
+    const tabRemux = document.getElementById('tabRemux');
+    const tabTranscode = document.getElementById('tabTranscode');
+    const transcodeOptions = document.getElementById('transcodeOptions');
+
+    const optResolution = document.getElementById('optResolution');
+    const customResRow = document.getElementById('customResRow');
+    const customW = document.getElementById('customW');
+    const customH = document.getElementById('customH');
+    const optFps = document.getElementById('optFps');
+    const optPreset = document.getElementById('optPreset');
+    const optRateMode = document.getElementById('optRateMode');
+    const crfField = document.getElementById('crfField');
+    const bitrateField = document.getElementById('bitrateField');
+    const optCrf = document.getElementById('optCrf');
+    const crfLabel = document.getElementById('crfLabel');
+    const optBitrate = document.getElementById('optBitrate');
+    const optAudio = document.getElementById('optAudio');
+    const optExt = document.getElementById('optExt');
+
+    const optSdtMode = document.getElementById('optSdtMode');
+    const sdtProviderField = document.getElementById('sdtProviderField');
+    const sdtServiceField = document.getElementById('sdtServiceField');
+    const sdtProvider = document.getElementById('sdtProvider');
+    const sdtService = document.getElementById('sdtService');
+
+    const cmdPreview = document.getElementById('cmdPreview');
+    const coreStatusText = document.getElementById('coreStatusText');
+    const btnProcess = document.getElementById('btnProcess');
+    const progressBox = document.getElementById('progressBox');
+    const progressFill = document.getElementById('progressFill');
+    const progressLabel = document.getElementById('progressLabel');
+    const progressPct = document.getElementById('progressPct');
+    const logBox = document.getElementById('logBox');
+    const resultCard = document.getElementById('resultCard');
+    const verifySummary = document.getElementById('verifySummary');
+    const downloadLink = document.getElementById('downloadLink');
+
+    // Cek dukungan SharedArrayBuffer (aktif jika coi-serviceworker atau header COOP/COEP tersedia)
+    const supportsMultiThread = typeof SharedArrayBuffer !== 'undefined' && window.crossOriginIsolated;
+    if (supportsMultiThread) {
+      threadBadge.className = 'inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-full text-xs font-semibold border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 shrink-0';
+      threadText.textContent = 'Multi-Thread Aktif (SharedArrayBuffer)';
+    } else {
+      threadBadge.className = 'inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-full text-xs font-semibold border border-amber-500/40 bg-amber-500/10 text-amber-300 shrink-0';
+      threadText.textContent = 'Single-Thread Mode (Tanpa COOP/COEP)';
+    }
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    function appendLog(line, isError = false) {
+      logBox.classList.remove('hidden');
+      if (isError) {
+        logBox.classList.remove('border-slate-800', 'text-slate-300');
+        logBox.classList.add('border-rose-500/50', 'text-rose-300');
+      }
+      const lines = logBox.textContent ? logBox.textContent.split('\n') : [];
+      lines.push(line);
+      if (lines.length > 150) lines.splice(0, lines.length - 150);
+      logBox.textContent = lines.join('\n');
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function setProgress(pct, text) {
+      progressBox.classList.remove('hidden');
+      const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+      progressFill.style.width = clamped + '%';
+      progressPct.textContent = clamped + '%';
+      if (text) progressLabel.textContent = text;
+    }
+
+    // Muat engine FFmpeg.wasm secara on-demand
+    async function ensureFFmpegLoaded() {
+      if (isCoreLoaded && ffmpeg) return ffmpeg;
+      if (isLoadingCore) return null;
+
+      isLoadingCore = true;
+      btnPreload.disabled = true;
+      btnProcess.disabled = true;
+      coreStatusText.textContent = supportsMultiThread
+        ? 'Mengunduh FFmpeg Core Multi-Thread (~32 MB)...'
+        : 'Mengunduh FFmpeg Core Single-Thread (~31 MB)...';
+      setProgress(5, 'Mengunduh engine FFmpeg.wasm...');
+      appendLog(`[Init] Memuat FFmpeg.wasm (${supportsMultiThread ? 'Multi-Thread' : 'Single-Thread'})...`);
+
+      try {
+        ffmpeg = new FFmpeg();
+        ffmpeg.on('log', ({ message }) => {
+          if (message) appendLog(message);
+        });
+        ffmpeg.on('progress', ({ progress }) => {
+          if (typeof progress === 'number' && !Number.isNaN(progress)) {
+            setProgress(Math.min(96, Math.max(5, progress * 100)), 'Memproses stream video...');
+          }
+        });
+
+        // Bungkus worker ESM via Blob same-origin agar lolos kebijakan cross-origin Worker
+        const workerWrapper = new Blob(
+          [`import "${WORKER_ESM_URL}";`],
+          { type: 'application/javascript' }
+        );
+        const classWorkerURL = URL.createObjectURL(workerWrapper);
+
+        if (supportsMultiThread) {
+          await ffmpeg.load({
+            classWorkerURL,
+            coreURL: await toBlobURL(`${CORE_MT_BASE}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${CORE_MT_BASE}/ffmpeg-core.wasm`, 'application/wasm'),
+            workerURL: await toBlobURL(`${CORE_MT_BASE}/ffmpeg-core.worker.js`, 'text/javascript')
+          });
+        } else {
+          await ffmpeg.load({
+            classWorkerURL,
+            coreURL: await toBlobURL(`${CORE_ST_BASE}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${CORE_ST_BASE}/ffmpeg-core.wasm`, 'application/wasm')
+          });
+        }
+
+        isCoreLoaded = true;
+        coreStatusText.textContent = 'Core FFmpeg siap digunakan di memori browser.';
+        btnPreload.textContent = 'Core Siap ✓';
+        setProgress(100, 'Engine FFmpeg siap.');
+        appendLog('[Init] FFmpeg.wasm berhasil dimuat!');
+        return ffmpeg;
+      } catch (err) {
+        appendLog('[Error Init] ' + (err.message || err), true);
+        coreStatusText.textContent = 'Gagal memuat core FFmpeg. Periksa koneksi internet.';
+        btnPreload.disabled = false;
+        throw err;
+      } finally {
+        isLoadingCore = false;
+        if (selectedFile && !isProcessing) btnProcess.disabled = false;
+      }
+    }
+
+    // Susun argumen perintah FFmpeg
+    function buildFFmpegArgs(inputName, outputName) {
+      const args = ['-i', inputName, '-map', '0:v:0'];
+
+      const audioChoice = optAudio.value;
+      if (audioChoice !== 'none') {
+        args.push('-map', '0:a?');
+      }
+
+      if (mode === 'remux') {
+        args.push('-c:v', 'copy');
+      } else {
+        args.push('-c:v', 'libx264', '-preset', optPreset.value, '-pix_fmt', 'yuv420p');
+
+        const res = optResolution.value;
+        if (res === '1080' || res === '720' || res === '480') {
+          args.push('-vf', `scale='if(gte(iw,ih),-2,${res})':'if(gte(iw,ih),${res},-2)'`);
+        } else if (res === 'custom') {
+          const w = Math.max(16, (parseInt(customW.value, 10) || 1080) & ~1);
+          const h = Math.max(16, (parseInt(customH.value, 10) || 1920) & ~1);
+          args.push('-vf', `scale=${w}:${h}`);
+        }
+
+        if (optFps.value !== 'orig') {
+          args.push('-r', optFps.value);
+        }
+
+        if (optRateMode.value === 'crf') {
+          args.push('-crf', optCrf.value);
+        } else {
+          const br = Math.max(200, parseInt(optBitrate.value, 10) || 4000);
+          args.push('-b:v', `${br}k`, '-maxrate', `${Math.round(br * 1.25)}k`, '-bufsize', `${br * 2}k`);
+        }
+      }
+
+      if (audioChoice === 'copy') {
+        args.push('-c:a', 'copy');
+      } else if (audioChoice === 'aac128') {
+        args.push('-c:a', 'aac', '-b:a', '128k');
+      } else if (audioChoice === 'aac192') {
+        args.push('-c:a', 'aac', '-b:a', '192k');
+      } else {
+        args.push('-an');
+      }
+
+      // Hapus seluruh tag metadata MP4 lama
+      args.push('-map_metadata', '-1');
+
+      // Pengaturan tag SDT MPEG-TS
+      if (optSdtMode.value === 'custom') {
+        const prov = sdtProvider.value.trim() || 'CustomMux';
+        const serv = sdtService.value.trim() || 'Service01';
+        args.push('-metadata', `service_provider=${prov}`);
+        args.push('-metadata', `service_name=${serv}`);
+      }
+
+      args.push('-f', 'mpegts', outputName);
+      return args;
+    }
+
+    function updateCommandPreview() {
+      const inName = selectedFile ? selectedFile.name : 'input.mp4';
+      const outName = 'output' + optExt.value;
+      const args = buildFFmpegArgs(inName, outName);
+      const formatted = args.map(a => (a.includes(' ') || a.includes("'")) ? `"${a}"` : a).join(' ');
+      const suffix = optSdtMode.value === 'strip'
+        ? '  [+ Post-Process JS: Hapus PID 0x0011 (SDT) -> 0x1FFF]'
+        : '';
+      cmdPreview.textContent = `ffmpeg ${formatted}${suffix}`;
+    }
+
+    // Ganti seluruh paket SDT (PID 0x0011) menjadi Null Packet (PID 0x1FFF)
+    function stripSdtPacketsInPlace(tsBytes) {
+      let strippedCount = 0;
+      for (let off = 0; off + 188 <= tsBytes.length; off += 188) {
+        if (tsBytes[off] !== 0x47) continue;
+        const pid = ((tsBytes[off + 1] & 0x1F) << 8) | tsBytes[off + 2];
+        if (pid === 0x0011) {
+          tsBytes[off] = 0x47;
+          tsBytes[off + 1] = 0x1F;
+          tsBytes[off + 2] = 0xFF;
+          tsBytes[off + 3] = 0x10;
+          tsBytes.fill(0xFF, off + 4, off + 188);
+          strippedCount++;
+        }
+      }
+      return strippedCount;
+    }
+
+    // Verifikator struktur biner MPEG-TS hasil output
+    function verifyMpegTsOutput(tsBytes) {
+      const totalPackets = Math.floor(tsBytes.length / 188);
+      const pidCounts = new Map();
+      let syncErrors = 0;
+      let patSummary = 'Tidak ditemukan';
+      let pmtSummary = 'Tidak ditemukan';
+      let sdtSummary = 'Tidak ada (Dihapus / Null Packet 0x1FFF)';
+
+      function getSection(pkt) {
+        const afc = (pkt[3] >> 4) & 0x03;
+        const pusi = (pkt[1] >> 6) & 0x01;
+        if (!pusi || (afc !== 1 && afc !== 3)) return null;
+        let pos = 4;
+        if (afc === 3) pos += 1 + pkt[4];
+        if (pos >= 188) return null;
+        pos += 1 + pkt[pos];
+        if (pos + 3 >= 188) return null;
+        const secLen = ((pkt[pos + 1] & 0x0F) << 8) | pkt[pos + 2];
+        return pkt.subarray(pos, Math.min(188, pos + 3 + secLen));
+      }
+
+      let pmtPidTarget = -1;
+      for (let off = 0; off + 188 <= tsBytes.length; off += 188) {
+        if (tsBytes[off] !== 0x47) {
+          syncErrors++;
+          continue;
+        }
+        const pid = ((tsBytes[off + 1] & 0x1F) << 8) | tsBytes[off + 2];
+        pidCounts.set(pid, (pidCounts.get(pid) || 0) + 1);
+
+        if (pid === 0x0000 && patSummary === 'Tidak ditemukan') {
+          const sec = getSection(tsBytes.subarray(off, off + 188));
+          if (sec && sec[0] === 0x00 && sec.length >= 12) {
+            const tsid = (sec[3] << 8) | sec[4];
+            const prog = (sec[8] << 8) | sec[9];
+            pmtPidTarget = ((sec[10] & 0x1F) << 8) | sec[11];
+            patSummary = `TSID=${tsid} | Program #${prog} -> PMT PID 0x${pmtPidTarget.toString(16).toUpperCase().padStart(4, '0')}`;
+          }
+        } else if (pid === pmtPidTarget && pmtSummary === 'Tidak ditemukan') {
+          const sec = getSection(tsBytes.subarray(off, off + 188));
+          if (sec && sec[0] === 0x02 && sec.length >= 12) {
+            const pcrPid = ((sec[8] & 0x1F) << 8) | sec[9];
+            const progInfoLen = ((sec[10] & 0x0F) << 8) | sec[11];
+            let p = 12 + progInfoLen;
+            const streams = [];
+            while (p + 5 <= sec.length - 4) {
+              const st = sec[p];
+              const ep = ((sec[p + 1] & 0x1F) << 8) | sec[p + 2];
+              const esLen = ((sec[p + 3] & 0x0F) << 8) | sec[p + 4];
+              const label = st === 0x1B ? 'H.264/AVC' : st === 0x24 ? 'HEVC' : st === 0x0F ? 'AAC' : `Type 0x${st.toString(16)}`;
+              streams.push(`0x${ep.toString(16).toUpperCase().padStart(4, '0')}(${label})`);
+              p += 5 + esLen;
+            }
+            pmtSummary = `PCR PID=0x${pcrPid.toString(16).toUpperCase().padStart(4, '0')} | Streams: ${streams.join(', ')}`;
+          }
+        } else if (pid === 0x0011 && sdtSummary.startsWith('Tidak ada')) {
+          const sec = getSection(tsBytes.subarray(off, off + 188));
+          if (sec && sec[0] === 0x42 && sec.length >= 16) {
+            const dec = new TextDecoder('utf-8', { fatal: false });
+            let p = 11;
+            const infos = [];
+            while (p + 5 <= sec.length - 4) {
+              const sid = (sec[p] << 8) | sec[p + 1];
+              const dLoopLen = ((sec[p + 3] & 0x0F) << 8) | sec[p + 4];
+              let dp = p + 5;
+              const dEnd = Math.min(sec.length - 4, dp + dLoopLen);
+              let prov = '', serv = '';
+              while (dp + 2 <= dEnd) {
+                const tag = sec[dp];
+                const dlen = sec[dp + 1];
+                if (tag === 0x48 && dp + 5 <= dEnd) {
+                  const pLen = sec[dp + 3];
+                  prov = dec.decode(sec.subarray(dp + 4, dp + 4 + pLen));
+                  const sIdx = dp + 4 + pLen;
+                  const sLen = sec[sIdx];
+                  serv = dec.decode(sec.subarray(sIdx + 1, sIdx + 1 + sLen));
+                }
+                dp += 2 + dlen;
+              }
+              infos.push(`Service ${sid}: Provider="${prov}" | Service="${serv}"`);
+              p += 5 + dLoopLen;
+            }
+            if (infos.length) sdtSummary = infos.join(' ; ');
+          }
+        }
+      }
+
+      const pidList = Array.from(pidCounts.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([pid, cnt]) => `0x${pid.toString(16).toUpperCase().padStart(4, '0')}(${cnt} pkt)`)
+        .join(', ');
+
+      return (
+        `Format       : MPEG-TS 188-byte | Total Paket: ${totalPackets.toLocaleString()} (Sync Error: ${syncErrors})\n` +
+        `Ukuran File  : ${formatBytes(tsBytes.length)} (${tsBytes.length.toLocaleString()} bytes)\n` +
+        `PAT (0x0000) : ${patSummary}\n` +
+        `PMT          : ${pmtSummary}\n` +
+        `SDT (0x0011) : ${sdtSummary}\n` +
+        `Daftar PID   : ${pidList}`
+      );
+    }
+
+    // Event UI
+    function switchMode(newMode) {
+      mode = newMode;
+      const activeCls = 'text-left p-3.5 rounded-xl border border-sky-400 bg-sky-500/10 transition';
+      const idleCls = 'text-left p-3.5 rounded-xl border border-slate-800 bg-slate-950 hover:border-slate-700 transition';
+      tabRemux.className = mode === 'remux' ? activeCls : idleCls;
+      tabTranscode.className = mode === 'transcode' ? activeCls : idleCls;
+      transcodeOptions.classList.toggle('hidden', mode === 'remux');
+      updateCommandPreview();
+    }
+
+    tabRemux.addEventListener('click', () => switchMode('remux'));
+    tabTranscode.addEventListener('click', () => switchMode('transcode'));
+
+    optResolution.addEventListener('change', () => {
+      customResRow.classList.toggle('hidden', optResolution.value !== 'custom');
+      updateCommandPreview();
+    });
+    optRateMode.addEventListener('change', () => {
+      const isCrf = optRateMode.value === 'crf';
+      crfField.classList.toggle('hidden', !isCrf);
+      bitrateField.classList.toggle('hidden', isCrf);
+      updateCommandPreview();
+    });
+    optCrf.addEventListener('input', () => {
+      crfLabel.textContent = optCrf.value;
+      updateCommandPreview();
+    });
+    optSdtMode.addEventListener('change', () => {
+      const isCustom = optSdtMode.value === 'custom';
+      sdtProviderField.classList.toggle('hidden', !isCustom);
+      sdtServiceField.classList.toggle('hidden', !isCustom);
+      updateCommandPreview();
+    });
+
+    [customW, customH, optFps, optPreset, optBitrate, optAudio, optExt, sdtProvider, sdtService].forEach(el => {
+      el.addEventListener('input', updateCommandPreview);
+      el.addEventListener('change', updateCommandPreview);
+    });
+
+    function handleFileSelected(file) {
+      if (!file) return;
+      selectedFile = file;
+      resultCard.classList.add('hidden');
+      sourceInfo.classList.remove('hidden');
+
+      document.getElementById('srcName').textContent = file.name;
+      document.getElementById('srcSize').textContent = formatBytes(file.size);
+      document.getElementById('srcRes').textContent = 'Membaca...';
+      document.getElementById('srcDur').textContent = 'Membaca...';
+
+      if (lastSourcePreviewUrl) URL.revokeObjectURL(lastSourcePreviewUrl);
+      lastSourcePreviewUrl = URL.createObjectURL(file);
+      sourcePreview.src = lastSourcePreviewUrl;
+      sourcePreview.onloadedmetadata = () => {
+        document.getElementById('srcRes').textContent =
+          sourcePreview.videoWidth ? `${sourcePreview.videoWidth} × ${sourcePreview.videoHeight} px` : 'Tidak terbaca';
+        document.getElementById('srcDur').textContent =
+          Number.isFinite(sourcePreview.duration) ? `${sourcePreview.duration.toFixed(2)} detik` : '-';
+      };
+      sourcePreview.onerror = () => {
+        document.getElementById('srcRes').textContent = 'Tidak dipreview browser (tetap bisa diproses)';
+        document.getElementById('srcDur').textContent = '-';
+      };
+
+      btnProcess.disabled = isLoadingCore || isProcessing;
+      updateCommandPreview();
+    }
+
+    fileInput.addEventListener('click', () => { fileInput.value = ''; });
+    fileInput.addEventListener('change', (e) => handleFileSelected(e.target.files[0]));
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('border-sky-400', 'bg-sky-500/5');
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('border-sky-400', 'bg-sky-500/5');
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('border-sky-400', 'bg-sky-500/5');
+      if (e.dataTransfer.files.length) handleFileSelected(e.dataTransfer.files[0]);
+    });
+
+    btnPreload.addEventListener('click', () => {
+      ensureFFmpegLoaded().catch(() => {});
+    });
+
+    btnProcess.addEventListener('click', async () => {
+      if (!selectedFile || isProcessing) return;
+
+      isProcessing = true;
+      btnProcess.disabled = true;
+      resultCard.classList.add('hidden');
+      logBox.classList.remove('border-rose-500/50', 'text-rose-300');
+      logBox.classList.add('border-slate-800', 'text-slate-300');
+      logBox.textContent = '';
+
+      const dotIdx = selectedFile.name.lastIndexOf('.');
+      const baseName = dotIdx > 0 ? selectedFile.name.slice(0, dotIdx) : selectedFile.name;
+      const inExt = dotIdx > 0 ? selectedFile.name.slice(dotIdx) : '.mp4';
+      const vfsInput = 'input_video' + inExt.replace(/[^a-zA-Z0-9.]/g, '');
+      const vfsOutput = 'output_video.ts';
+
+      try {
+        const ff = await ensureFFmpegLoaded();
+        if (!ff) return;
+
+        setProgress(5, 'Menyalin file ke memori virtual FFmpeg...');
+        appendLog(`[Write] Menulis ${selectedFile.name} (${formatBytes(selectedFile.size)}) ke VFS...`);
+        await ff.writeFile(vfsInput, await fetchFile(selectedFile));
+
+        const args = buildFFmpegArgs(vfsInput, vfsOutput);
+        appendLog(`[Exec] ffmpeg ${args.join(' ')}`);
+        setProgress(10, mode === 'remux' ? 'Melakukan remux ke MPEG-TS...' : 'Melakukan encoding libx264 ke MPEG-TS...');
+
+        const t0 = performance.now();
+        const exitCode = await ff.exec(args);
+        if (exitCode !== 0) {
+          throw new Error(`FFmpeg berhenti dengan kode error ${exitCode}. Lihat log di atas.`);
+        }
+
+        let outData = await ff.readFile(vfsOutput);
+        if (optSdtMode.value === 'strip') {
+          const stripped = stripSdtPacketsInPlace(outData);
+          appendLog(`[Post-Process] ${stripped} paket SDT (PID 0x0011) diganti menjadi Null Packet (0x1FFF).`);
+        }
+
+        const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+        setProgress(100, `Selesai dalam ${elapsed} detik!`);
+        appendLog(`[Done] Selesai dalam ${elapsed} detik. Ukuran output: ${formatBytes(outData.length)}.`);
+
+        verifySummary.textContent = verifyMpegTsOutput(outData);
+
+        if (lastOutputUrl) URL.revokeObjectURL(lastOutputUrl);
+        const outBlob = new Blob([outData], { type: 'video/mp2t' });
+        lastOutputUrl = URL.createObjectURL(outBlob);
+
+        const downloadName = `${baseName}_ts${optExt.value}`;
+        downloadLink.href = lastOutputUrl;
+        downloadLink.download = downloadName;
+        downloadLink.textContent = `Download ${downloadName} (${formatBytes(outData.length)})`;
+        resultCard.classList.remove('hidden');
+      } catch (err) {
+        appendLog('[Error] ' + (err.message || err), true);
+        setProgress(0, 'Gagal memproses video.');
+      } finally {
+        if (ffmpeg && isCoreLoaded) {
+          try { await ffmpeg.deleteFile(vfsInput); } catch (_) {}
+          try { await ffmpeg.deleteFile(vfsOutput); } catch (_) {}
+        }
+        isProcessing = false;
+        btnProcess.disabled = !selectedFile;
+      }
+    });
+
+    updateCommandPreview();
+  </script>
+</body>
+</html>
