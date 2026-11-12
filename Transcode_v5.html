@@ -1813,15 +1813,20 @@
         return URL.createObjectURL(new Blob([buf], { type: mimeType }));
       }
 
-      function loadExternalScript(srcUrl) {
-        return new Promise((resolve, reject) => {
-          const s = document.createElement('script');
-          s.src = srcUrl;
-          s.crossOrigin = 'anonymous';
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error(`Gagal memuat script: ${srcUrl}`));
-          document.head.appendChild(s);
-        });
+      function toBlobURLFromBuffer(buf, mimeType) {
+        return URL.createObjectURL(new Blob([buf], { type: mimeType }));
+      }
+
+      async function importModuleWithFallback(urls) {
+        let lastErr = null;
+        for (const url of urls) {
+          try {
+            return await import(/* @vite-ignore */ url);
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+        throw lastErr || new Error('Gagal mengimpor modul ES dari CDN.');
       }
 
       function createDirectCoreAdapter(coreInstance) {
@@ -1841,22 +1846,17 @@
           async writeFile(path, data) {
             coreInstance.FS.writeFile(path, data);
           },
-          async exec(args) {
-            await new Promise(r => setTimeout(r, 30));
-            const ret = coreInstance.exec(...args);
-            if (typeof ret === 'number' && ret !== 0) {
-              throw new Error(`FFmpeg keluar dengan kode ${ret}`);
-            }
-            return ret;
-          },
           async readFile(path) {
             return coreInstance.FS.readFile(path);
           },
           async deleteFile(path) {
-            try { coreInstance.FS.unlink(path); } catch (_) {}
+            try { coreInstance.FS.unlink(path); } catch (e) {}
+          },
+          async exec(args) {
+            return coreInstance.exec(...args);
           },
           terminate() {
-            try { if (typeof coreInstance.reset === 'function') coreInstance.reset(); } catch (_) {}
+            try { coreInstance.exit(0); } catch(e) {}
           }
         };
       }
@@ -1866,19 +1866,23 @@
         if (isLoadingCore) return false;
         isLoadingCore = true;
         btnPreloadCore.disabled = true;
-        btnPreloadCore.textContent = 'Mengunduh Core...';
+        btnPreloadCore.textContent = 'Memuat Core...';
         btnProcess.disabled = true;
 
         try {
           const isMT = supportsMultiThread();
+          const ffmpegEsmRoots = [
+            'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm',
+            'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm'
+          ];
           const singleCoreRoots = [
-            'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd',
-            'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd',
-            'https://fastly.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd'
+            'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm',
+            'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm',
+            'https://fastly.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm'
           ];
           const mtCoreRoots = [
-            'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.6/dist/umd',
-            'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/umd'
+            'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.6/dist/esm',
+            'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm'
           ];
 
           setProgress(10, 'Mengunduh ffmpeg-core.js...');
@@ -1886,30 +1890,41 @@
 
           const activeRoots = isMT ? mtCoreRoots : singleCoreRoots;
           const coreJsBuf = await fetchBufferWithFallback(activeRoots.map(r => `${r}/ffmpeg-core.js`));
-          const coreURL = URL.createObjectURL(new Blob([coreJsBuf], { type: 'text/javascript' }));
+          const coreURL = toBlobURLFromBuffer(coreJsBuf, 'text/javascript');
 
           setProgress(25, 'Mengunduh ffmpeg-core.wasm (~30 MB)...');
           const wasmBuf = await fetchBufferWithFallback(activeRoots.map(r => `${r}/ffmpeg-core.wasm`));
-          const wasmURL = URL.createObjectURL(new Blob([wasmBuf], { type: 'application/wasm' }));
+          const wasmURL = toBlobURLFromBuffer(wasmBuf, 'application/wasm');
 
-          // Coba Mode 1: Web Worker (@ffmpeg/ffmpeg UMD)
+          // Lapisan 1: ESM Web Worker dengan rewrite import absolut
           let workerReady = false;
           try {
-            setProgress(40, 'Menyiapkan Web Worker FFmpeg...');
-            if (!window.FFmpegWASM || !window.FFmpegWASM.FFmpeg) {
-              const umdUrl = await toBlobURLWithFallback([
-                'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js',
-                'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js'
-              ], 'text/javascript');
-              await loadExternalScript(umdUrl);
+            setProgress(40, 'Menyiapkan ESM Web Worker FFmpeg...');
+            const ffmpegMod = await importModuleWithFallback(ffmpegEsmRoots.map(r => `${r}/index.js`));
+            const FFmpegClass = ffmpegMod.FFmpeg;
+
+            let workerCode = null;
+            let chosenEsmRoot = ffmpegEsmRoots[0];
+            for (const root of ffmpegEsmRoots) {
+              try {
+                const res = await fetch(`${root}/worker.js`, { mode: 'cors' });
+                if (res.ok) {
+                  workerCode = await res.text();
+                  chosenEsmRoot = root;
+                  break;
+                }
+              } catch (_) {}
             }
+            if (!workerCode) throw new Error('Tidak dapat mengunduh worker.js');
 
-            const classWorkerURL = await toBlobURLWithFallback([
-              'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js',
-              'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js'
-            ], 'text/javascript');
+            // Ubah relative import di worker.js menjadi URL CDN absolut agar valid di dalam Blob URL
+            workerCode = workerCode
+              .replace(/from\s+["']\.\/const\.js["']/g, `from "${chosenEsmRoot}/const.js"`)
+              .replace(/from\s+["']\.\/errors\.js["']/g, `from "${chosenEsmRoot}/errors.js"`);
 
-            const workerFfmpeg = new window.FFmpegWASM.FFmpeg();
+            const classWorkerURL = URL.createObjectURL(new Blob([workerCode], { type: 'text/javascript' }));
+
+            const workerFfmpeg = new FFmpegClass();
             workerFfmpeg.on('log', ({ message }) => appendLog(message));
             workerFfmpeg.on('progress', ({ progress }) => {
               if (isProcessing && Number.isFinite(progress)) {
@@ -1920,30 +1935,27 @@
 
             const loadCfg = { classWorkerURL, coreURL, wasmURL };
             if (isMT) {
-              loadCfg.workerURL = await toBlobURLWithFallback(
-                mtCoreRoots.map(r => `${r}/ffmpeg-core.worker.js`),
-                'text/javascript'
-              );
+              const wBuf = await fetchBufferWithFallback(mtCoreRoots.map(r => `${r}/ffmpeg-core.worker.js`));
+              loadCfg.workerURL = toBlobURLFromBuffer(wBuf, 'text/javascript');
             }
 
             await workerFfmpeg.load(loadCfg);
             ffmpeg = workerFfmpeg;
             workerReady = true;
-            appendLog('[System] FFmpeg.wasm aktif dalam Mode Web Worker.');
+            appendLog('[System] FFmpeg.wasm aktif dalam Mode ESM Web Worker.');
           } catch (workerErr) {
-            appendLog(`[System] Worker dibatasi sandbox (${formatAnyError(workerErr)}), beralih ke Mode Direct Core...`);
+            appendLog(`[System] Worker dibatasi sandbox (${formatAnyError(workerErr)}), beralih ke Mode Direct ESM...`);
           }
 
-          // Mode 2 (Fallback Otomatis): Direct Core tanpa Worker
+          // Lapisan 2 (Fallback): Direct ESM import() tanpa Worker maupun <script>
           if (!workerReady) {
-            setProgress(45, 'Menginisialisasi Direct Core di memori...');
-            if (typeof window.createFFmpegCore !== 'function') {
-              await loadExternalScript(coreURL);
+            setProgress(45, 'Menginisialisasi Direct ESM Core di memori...');
+            const coreMod = await import(/* @vite-ignore */ coreURL);
+            const createCoreFn = coreMod.default || coreMod.createFFmpegCore || window.createFFmpegCore;
+            if (typeof createCoreFn !== 'function') {
+              throw new Error('Factory createFFmpegCore tidak ditemukan pada modul ESM.');
             }
-            if (typeof window.createFFmpegCore !== 'function') {
-              throw new Error('Factory createFFmpegCore tidak ditemukan pada ffmpeg-core.js.');
-            }
-            const rawCore = await window.createFFmpegCore({
+            const rawCore = await createCoreFn({
               mainScriptUrlOrBlob: coreURL,
               wasmBinary: wasmBuf,
               locateFile: (path) => (path.endsWith('.wasm') ? wasmURL : path)
@@ -1956,7 +1968,7 @@
                 setProgress(pct, `Memproses video... (${pct}%)`);
               }
             });
-            appendLog('[System] FFmpeg.wasm aktif dalam Mode Direct Core.');
+            appendLog('[System] FFmpeg.wasm aktif dalam Mode Direct ESM Core.');
           }
 
           isCoreLoaded = true;
@@ -1994,6 +2006,11 @@
           args.push('-c:v', 'copy');
         } else {
           args.push('-c:v', 'libx264', '-preset', optPreset.value, '-pix_fmt', 'yuv420p');
+
+          // Memaksa penggunaan semua core CPU bila Multi-Thread tersedia
+          if (supportsMultiThread()) {
+            args.push('-threads', '0'); 
+          }
 
           if (optProfile.value !== 'auto') args.push('-profile:v', optProfile.value);
           if (optLevel.value !== 'auto') args.push('-level:v', optLevel.value);
