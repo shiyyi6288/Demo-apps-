@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FFmpeg.wasm Studio — Transcoder, Remuxer &amp; Atom Cloner</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Font: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            FFmpeg.wasm Studio
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              Client-Side
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400">Remuxer, Transcoder, Inspektor &amp; Kloning Struktur Atom MP4 / MPEG-TS</p>
+        </div>
+      </div>
+
+      <!-- Status Threading & Muat Core -->
+      <div class="flex items-center gap-2.5">
+        <div id="threadBadge" class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
+          <span id="threadDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span id="threadText">Memeriksa mode...</span>
+        </div>
+        <button id="btnPreloadCore" type="button" class="text-xs font-medium px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition cursor-pointer">
+          Muat Core FFmpeg
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Info Banner -->
+    <div id="coiNotice" class="hidden rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3.5 text-xs text-amber-200 flex items-start gap-3">
+      <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <div>
+        <p class="font-semibold text-amber-300">Berjalan dalam Mode Single-Thread</p>
+        <p class="mt-0.5 text-amber-200/80">
+          Mode <span class="font-mono text-amber-100">Remux Cepat (-c:v copy)</span> dan <span class="font-mono text-amber-100">Inspeksi/Kloning Atom</span> berjalan instan. Untuk mempercepat <strong>Full Transcode</strong>, tambahkan <code class="bg-slate-900 px-1 py-0.5 rounded">coi-serviceworker.js</code> di root GitHub Pages.
+        </p>
+      </div>
+    </div>
+
+    <!-- Grid Utama: Kolom Kiri (Input & Referensi) | Kolom Kanan (Tujuan Preset & Eksekusi) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- ==================== KOLOM KIRI ==================== -->
+      <div class="lg:col-span-5 space-y-6">
+
+        <!-- CARD 1: Video Sumber -->
+        <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
+          <div class="flex items-center justify-between mb-3.5">
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">1</span>
+              Video Sumber
+            </h2>
+            <span class="text-[11px] text-slate-400">MP4 / MOV / MKV / WebM / TS</span>
+          </div>
+
+          <!-- Dropzone dengan Overlay Input File -->
+          <div id="dropzone" class="relative overflow-hidden border-2 border-dashed border-slate-700 hover:border-indigo-500/70 rounded-2xl p-5 text-center cursor-pointer transition-all bg-slate-950/50 hover:bg-slate-950 group">
+            <input id="fileInput" type="file" accept="video/*,.ts,.m2ts,.mts,.mp4,.mov,.mkv,.webm" aria-label="Pilih Video Sumber" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <div class="w-11 h-11 rounded-2xl bg-slate-800 group-hover:bg-indigo-500/20 text-slate-400 group-hover:text-indigo-400 flex items-center justify-center mx-auto mb-2.5 transition pointer-events-none">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <p class="text-sm font-medium text-slate-200 pointer-events-none">Pilih atau tarik video ke sini</p>
+            <p class="text-[11px] text-slate-500 mt-1 pointer-events-none">Disarankan ukuran &lt; 250 MB agar memori browser stabil</p>
+          </div>
+
+          <!-- Error Info Baca File -->
+          <div id="sourceErrorMsg" class="hidden mt-3 text-xs rounded-xl px-3 py-2 border border-rose-500/40 bg-rose-500/10 text-rose-300"></div>
+
+          <!-- Preview Video Sumber -->
+          <div id="sourceInfo" class="hidden mt-4 space-y-3">
+            <div class="rounded-xl overflow-hidden bg-black border border-slate-800">
+              <video id="sourcePreview" controls playsinline class="w-full max-h-48 object-contain mx-auto"></video>
+            </div>
+            <div class="bg-slate-950 rounded-xl p-3 border border-slate-800/80 text-xs space-y-1.5">
+              <div class="flex justify-between gap-2">
+                <span class="text-slate-400">Nama File:</span>
+                <span id="srcName" class="font-mono text-slate-200 truncate max-w-[200px]">-</span>
+              </div>
+              <div class="flex justify-between gap-2">
+                <span class="text-slate-400">Ukuran:</span>
+                <span id="srcSize" class="font-mono text-slate-200">-</span>
+              </div>
+              <div class="flex justify-between gap-2">
+                <span class="text-slate-400">Resolusi &amp; Durasi:</span>
+                <span class="font-mono text-slate-200"><span id="srcRes">-</span> • <span id="srcDur">-</span></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CARD 1B: Referensi & Kloning Struktur Atom -->
+        <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3.5">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-violet-500/20 text-violet-400 flex items-center justify-center text-xs font-bold">1B</span>
+              Inspektor &amp; Kloning Atom
+            </h2>
+            <button id="btnUseSourceAsRef" type="button" class="hidden text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-violet-300 transition cursor-pointer">
+              Analisa Sumber
+            </button>
+          </div>
+
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Unggah video patokan untuk melihat pohon atom / paket MPEG-TS atau menyalin strukturnya.
+          </p>
+
+          <div id="refDropzone" class="relative overflow-hidden border border-dashed border-violet-500/40 hover:border-violet-400 rounded-xl p-3.5 text-center cursor-pointer transition bg-slate-950/60 hover:bg-slate-950 flex items-center justify-center gap-2.5">
+            <input id="refFileInput" type="file" accept="video/*,.ts,.m2ts,.mts,.mp4,.mov" aria-label="Pilih Video Referensi" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <svg class="w-5 h-5 text-violet-400 shrink-0 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span class="text-xs font-medium text-violet-200 pointer-events-none">Pilih Video Referensi (MP4 / MPEG-TS)</span>
+          </div>
+
+          <div id="refStatusMsg" class="hidden text-xs rounded-xl px-3 py-2 border"></div>
+
+          <!-- Panel Hasil Analisa & Kloning Referensi -->
+          <div id="refPanel" class="hidden space-y-3 bg-slate-950 rounded-xl p-3.5 border border-violet-500/30">
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+              <div class="bg-slate-900 p-2 rounded-lg border border-slate-800">
+                <span class="text-slate-400 block">Wadah / Format</span>
+                <span id="refFormat" class="font-mono font-semibold text-violet-300">-</span>
+              </div>
+              <div class="bg-slate-900 p-2 rounded-lg border border-slate-800">
+                <span class="text-slate-400 block">Resolusi &amp; FPS</span>
+                <span id="refResFps" class="font-mono font-semibold text-slate-200">-</span>
+              </div>
+              <div class="bg-slate-900 p-2 rounded-lg border border-slate-800">
+                <span class="text-slate-400 block">Codec &amp; Warna</span>
+                <span id="refCodecColor" class="font-mono font-semibold text-slate-200 truncate block">-</span>
+              </div>
+              <div class="bg-slate-900 p-2 rounded-lg border border-slate-800">
+                <span class="text-slate-400 block">Metadata / Tag</span>
+                <span id="refMetaSummary" class="font-mono font-semibold text-amber-300 truncate block">-</span>
+              </div>
+            </div>
+
+            <!-- Kloning Toggle -->
+            <div class="pt-2 border-t border-slate-800 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <label class="inline-flex items-center gap-2 cursor-pointer">
+                  <input id="chkApplyRef" type="checkbox" checked class="w-4 h-4 rounded accent-violet-500 cursor-pointer" />
+                  <span class="text-xs font-semibold text-white">Kloning Atom Referensi ke Output</span>
+                </label>
+                <button id="btnSyncRefParams" type="button" class="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 text-violet-200 transition cursor-pointer">
+                  Sinkronkan Parameter
+                </button>
+              </div>
+
+              <!-- Opsi Kloning MP4 -->
+              <div id="refMp4Options" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-slate-300 pl-1">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input id="chkRefFtyp" type="checkbox" checked class="accent-violet-500" />
+                  <span><code class="text-violet-300">ftyp</code> (Brand)</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input id="chkRefColr" type="checkbox" checked class="accent-violet-500" />
+                  <span><code class="text-violet-300">colr</code> &amp; <code class="text-violet-300">pasp</code></span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input id="chkRefHdlr" type="checkbox" checked class="accent-violet-500" />
+                  <span>Nama <code class="text-violet-300">hdlr</code> muxer</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input id="chkRefTime" type="checkbox" checked class="accent-violet-500" />
+                  <span>Timestamp <code class="text-violet-300">mvhd/tkhd</code></span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer sm:col-span-2">
+                  <input id="chkRefUdta" type="checkbox" checked class="accent-violet-500" />
+                  <span>Tag <code class="text-violet-300">udta / meta / ilst</code></span>
+                </label>
+              </div>
+
+              <!-- Opsi Kloning MPEG-TS -->
+              <div id="refTsOptions" class="hidden grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-slate-300 pl-1">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input id="chkRefTsSdt" type="checkbox" checked class="accent-violet-500" />
+                  <span>Tag <code class="text-violet-300">SDT</code></span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input id="chkRefTsIds" type="checkbox" checked class="accent-violet-500" />
+                  <span><code class="text-violet-300">TSID</code> &amp; <code class="text-violet-300">ONID</code></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Pohon Atom Referensi -->
+            <details class="group">
+              <summary class="text-[11px] font-medium text-violet-300 hover:text-violet-200 cursor-pointer flex items-center justify-between py-1">
+                <span>Lihat Pohon Struktur Lengkap Referensi</span>
+                <span class="group-open:rotate-180 transition-transform">&#9662;</span>
+              </summary>
+              <div class="mt-1.5 space-y-1.5">
+                <div class="flex justify-end gap-2">
+                  <button id="btnCopyRefTree" type="button" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer">Salin Laporan</button>
+                  <button id="btnDownloadRefTree" type="button" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer">Download .txt</button>
+                </div>
+                <pre id="refStructureTree" class="font-mono text-[10.5px] leading-relaxed text-slate-300 bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 max-h-52 overflow-auto whitespace-pre"></pre>
+              </div>
+            </details>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ==================== KOLOM KANAN ==================== -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- CARD 2: Tujuan & Parameter Output -->
+        <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold">2</span>
+              Pilih Tujuan &amp; Struktur Output
+            </h2>
+            <span id="activePresetBadge" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              Fitur 1: MP4 Sosial (High L5.2)
+            </span>
+          </div>
+
+          <!-- 3 Kartu Fitur Utama -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- Fitur 1 -->
+            <button id="btnPresetMp4Social" type="button" class="preset-card text-left p-3.5 rounded-2xl border-2 border-indigo-500 bg-indigo-500/10 hover:bg-indigo-500/15 transition cursor-pointer relative">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-500 text-white">Fitur 1</span>
+                <span class="preset-dot w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+              </div>
+              <p class="text-xs font-bold text-white">MP4 Sosial (High L5.2)</p>
+              <p class="text-[11px] text-slate-300/80 mt-1 leading-snug">
+                <code class="text-indigo-300">BT.709</code>, <code class="text-indigo-300">free 8B</code>, tanpa <code class="text-indigo-300">btrt</code>, tag <code class="text-indigo-300">©ART / ©too / cprt</code>.
+              </p>
+            </button>
+
+            <!-- Fitur 2 -->
+            <button id="btnPresetTs" type="button" class="preset-card text-left p-3.5 rounded-2xl border border-slate-700/90 bg-slate-950/60 hover:border-cyan-500/60 hover:bg-slate-950 transition cursor-pointer relative">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Fitur 2</span>
+                <span class="preset-dot w-2.5 h-2.5 rounded-full bg-slate-700"></span>
+              </div>
+              <p class="text-xs font-bold text-white">MPEG-TS Stream (.mp4)</p>
+              <p class="text-[11px] text-slate-400 mt-1 leading-snug">
+                Paket <code class="text-cyan-300">188-byte</code>, SDT <code class="text-cyan-300">FFmpeg / Service01</code>, bebas metadata MP4.
+              </p>
+            </button>
+
+            <!-- Fitur 3 -->
+            <button id="btnPresetSmartCut" type="button" class="preset-card text-left p-3.5 rounded-2xl border border-slate-700/90 bg-slate-950/60 hover:border-emerald-500/60 hover:bg-slate-950 transition cursor-pointer relative">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Fitur 3</span>
+                <span class="preset-dot w-2.5 h-2.5 rounded-full bg-slate-700"></span>
+              </div>
+              <p class="text-xs font-bold text-white">MP4 Smart-Cut</p>
+              <p class="text-[11px] text-slate-400 mt-1 leading-snug">
+                <code class="text-emerald-300">2×free</code>, <code class="text-emerald-300">2×mdat</code>, <code class="text-emerald-300">moov</code> di akhir, <code class="text-emerald-300">High L4.2</code>, <code class="text-emerald-300">ilst 8B</code>.
+              </p>
+            </button>
+          </div>
+
+          <!-- Pengaturan Utama (Ringkas & Jelas) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+            <!-- Metode Pemrosesan -->
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Metode Pemrosesan Video</label>
+              <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                <button id="btnModeRemux" type="button" class="py-2 px-3 rounded-lg text-xs font-semibold transition cursor-pointer text-slate-400 hover:text-white">
+                  Remux Cepat (-c:v copy)
+                </button>
+                <button id="btnModeTranscode" type="button" class="py-2 px-3 rounded-lg text-xs font-semibold transition cursor-pointer bg-indigo-600 text-white shadow">
+                  Full Transcode (libx264)
+                </button>
+              </div>
+              <p id="modeDesc" class="text-[11px] text-slate-400 mt-1.5">
+                Full Transcode: merender ulang H.264 sehingga profil, level, warna BT.709, dan B-frames terbentuk baru.
+              </p>
+            </div>
+
+            <!-- Wadah Output -->
+            <div>
+              <label for="optContainer" class="block text-xs font-medium text-slate-300 mb-1.5">Format Wadah Output</label>
+              <select id="optContainer" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+                <option value="mp4" selected>MP4 (ISO BMFF + Atom Tree)</option>
+                <option value="mpegts">MPEG-TS (Transport Stream 188B)</option>
+              </select>
+            </div>
+
+            <!-- Audio -->
+            <div>
+              <label for="optAudio" class="block text-xs font-medium text-slate-300 mb-1.5">Trek Audio</label>
+              <select id="optAudio" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+                <option value="copy">Salin Asli (-c:a copy)</option>
+                <option value="aac_128" selected>Encode AAC 128 kbps</option>
+                <option value="strip">Hapus Audio (-an)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Opsi Kualitas (Aktif saat Full Transcode) -->
+          <div id="transcodeOptions" class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/90">
+            <div>
+              <label for="optRateMode" class="block text-xs font-medium text-slate-300 mb-1">Kontrol Kualitas</label>
+              <select id="optRateMode" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+                <option value="crf" selected>CRF (Kualitas Konstan)</option>
+                <option value="bitrate">Target Bitrate (kbps)</option>
+              </select>
+            </div>
+
+            <div id="crfControl">
+              <div class="flex justify-between text-xs mb-1">
+                <label for="optCrf" class="font-medium text-slate-300">Nilai CRF</label>
+                <span id="crfValueLabel" class="font-mono font-bold text-indigo-400">18</span>
+              </div>
+              <input id="optCrf" type="range" min="15" max="32" value="18" class="w-full accent-indigo-500 cursor-pointer mt-1.5" />
+            </div>
+
+            <div id="bitrateControl" class="hidden">
+              <label for="optBitrate" class="block text-xs font-medium text-slate-300 mb-1">Bitrate (kbps)</label>
+              <input id="optBitrate" type="number" min="200" max="50000" step="100" value="10000" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+              <label for="optPreset" class="block text-xs font-medium text-slate-300 mb-1">Kecepatan x264</label>
+              <select id="optPreset" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+                <option value="ultrafast">ultrafast (Tercepat)</option>
+                <option value="superfast">superfast</option>
+                <option value="veryfast" selected>veryfast (Seimbang)</option>
+                <option value="faster">faster</option>
+                <option value="medium">medium</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="optResolution" class="block text-xs font-medium text-slate-300 mb-1">Resolusi</label>
+              <select id="optResolution" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+                <option value="original" selected>Asli (Pertahankan)</option>
+                <option value="1080x1920">1080 × 1920 (9:16)</option>
+                <option value="1920x1080">1920 × 1080 (16:9)</option>
+                <option value="1280x720">1280 × 720 (HD)</option>
+                <option value="custom">Kustom...</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="optFps" class="block text-xs font-medium text-slate-300 mb-1">Frame Rate (FPS)</label>
+              <select id="optFps" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+                <option value="original" selected>Asli (Pertahankan)</option>
+                <option value="60">60 fps</option>
+                <option value="30">30 fps</option>
+                <option value="24">24 fps</option>
+              </select>
+            </div>
+
+            <div id="customResRow" class="hidden sm:col-span-3 grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <label for="customW" class="block text-[11px] text-slate-400 mb-1">Lebar (px)</label>
+                <input id="customW" type="number" min="128" max="3840" step="2" value="1080" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-100" />
+              </div>
+              <div>
+                <label for="customH" class="block text-[11px] text-slate-400 mb-1">Tinggi (px)</label>
+                <input id="customH" type="number" min="128" max="3840" step="2" value="1920" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-100" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Pengaturan Lanjutan (Collapsible) -->
+          <details class="group bg-slate-950/60 border border-slate-800 rounded-xl">
+            <summary class="px-4 py-3 text-xs font-semibold text-slate-200 hover:text-white cursor-pointer flex items-center justify-between">
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Pengaturan Lanjutan (Codec, Warna, Atom &amp; Metadata)
+              </span>
+              <span class="text-[11px] text-slate-400 group-open:rotate-180 transition-transform">&#9662;</span>
+            </summary>
+
+            <div class="px-4 pb-4 pt-2 border-t border-slate-800/80 space-y-4">
+              <!-- Opsi Codec & Warna Lanjutan -->
+              <div id="advancedCodecGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label for="optProfile" class="block text-xs font-medium text-slate-300 mb-1">H.264 Profile (<code class="text-indigo-300">avcC</code>)</label>
+                  <select id="optProfile" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100">
+                    <option value="high" selected>High (100)</option>
+                    <option value="main">Main (77)</option>
+                    <option value="baseline">Baseline (66)</option>
+                    <option value="auto">Otomatis</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label for="optLevel" class="block text-xs font-medium text-slate-300 mb-1">H.264 Level (<code class="text-indigo-300">avcC</code>)</label>
+                  <select id="optLevel" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100">
+                    <option value="5.2" selected>Level 5.2 (1080p60 Sosial)</option>
+                    <option value="5.1">Level 5.1</option>
+                    <option value="4.2">Level 4.2 (Smart-Cut)</option>
+                    <option value="4.1">Level 4.1</option>
+                    <option value="auto">Otomatis</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label for="optColorRange" class="block text-xs font-medium text-slate-300 mb-1">Warna (<code class="text-indigo-300">colr</code> &amp; <code class="text-indigo-300">pasp</code>)</label>
+                  <select id="optColorRange" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100">
+                    <option value="bt709_tv" selected>BT.709 Limited (TV) + pasp 1:1</option>
+                    <option value="bt709_tv_nopasp">BT.709 Limited (TV) tanpa pasp</option>
+                    <option value="keep">Ikuti Sumber</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label for="optBframes" class="block text-xs font-medium text-slate-300 mb-1">B-Frames (<code class="text-indigo-300">ctts</code>)</label>
+                  <select id="optBframes" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100">
+                    <option value="2" selected>Aktif (-bf 2)</option>
+                    <option value="auto">Otomatis x264</option>
+                    <option value="0">Nonaktif (-bf 0)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Opsi Struktur Atom MP4 -->
+              <div id="mp4MetaBox" class="space-y-3 pt-2 border-t border-slate-800">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label for="optMp4Layout" class="block text-xs font-medium text-slate-300 mb-1">Tata Letak Kotak MP4</label>
+                    <select id="optMp4Layout" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100">
+                      <option value="faststart" selected>Faststart (ftyp → moov → free → mdat)</option>
+                      <option value="smartcut">Smart-Cut (ftyp → 2×free → 2×mdat → moov)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label for="optMp4MetaMode" class="block text-xs font-medium text-slate-300 mb-1">Mode Metadata (<code class="text-indigo-300">udta/ilst</code>)</label>
+                    <select id="optMp4MetaMode" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100">
+                      <option value="forge" selected>Injeksi Preset Sosial (©ART / ©too / cprt)</option>
+                      <option value="ref">Gunakan Tag dari Video Referensi (1B)</option>
+                      <option value="empty_ilst">Kotak ilst Kosong (8B — Smart-Cut)</option>
+                      <option value="none">Hapus Semua Tag Metadata</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Checkbox Atom MP4 -->
+                <div class="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-300">
+                  <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                    <input id="chkMp4FreeBox" type="checkbox" checked class="accent-indigo-500" />
+                    <span>Sisipkan <code class="text-indigo-300">free</code> (8B)</span>
+                  </label>
+                  <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                    <input id="chkMp4ZeroTime" type="checkbox" checked class="accent-indigo-500" />
+                    <span>Timestamp = <code class="text-indigo-300">0</code></span>
+                  </label>
+                  <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                    <input id="chkMp4StripBtrt" type="checkbox" checked class="accent-indigo-500" />
+                    <span>Hapus <code class="text-indigo-300">btrt</code> (di <code class="text-indigo-300">avc1</code>)</span>
+                  </label>
+                </div>
+
+                <!-- Form Tag Forge -->
+                <div id="mp4ForgeFields" class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-900 p-3 rounded-xl border border-indigo-500/20">
+                  <div>
+                    <label for="forgeArt" class="block text-[11px] font-medium text-slate-400 mb-1">Tag <code class="text-indigo-300">©ART</code> (Artist)</label>
+                    <input id="forgeArt" type="text" value="editingnews.com" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-100" />
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <label for="forgeCprt" class="text-[11px] font-medium text-slate-400">Tag <code class="text-indigo-300">cprt</code> (32-hex)</label>
+                      <button id="btnRegenHash" type="button" class="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer">Acak Hash</button>
+                    </div>
+                    <input id="forgeCprt" type="text" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-100" />
+                  </div>
+                  <div>
+                    <label for="forgeAid" class="block text-[11px] font-medium text-slate-400 mb-1">App ID (<code class="text-indigo-300">aid</code>)</label>
+                    <input id="forgeAid" type="text" value="2004" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-100" />
+                  </div>
+                  <div>
+                    <label for="forgeBitrateVal" class="block text-[11px] font-medium text-slate-400 mb-1">Bitrate JSON (bps)</label>
+                    <input id="forgeBitrateVal" type="text" value="11156000" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-100" />
+                  </div>
+                  <div class="sm:col-span-2">
+                    <span class="block text-[11px] text-slate-400 mb-1">Preview JSON <code class="text-indigo-300">©too</code>:</span>
+                    <pre id="forgeTooPreview" class="text-[10px] font-mono text-slate-300 bg-slate-950 p-2 rounded-lg border border-slate-800 overflow-x-auto whitespace-pre-wrap break-all"></pre>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Opsi MPEG-TS -->
+              <div id="tsMetaBox" class="hidden space-y-3 pt-2 border-t border-slate-800">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label for="optSdtMode" class="block text-xs font-medium text-slate-300 mb-1">Tag SDT (PID 0x0011)</label>
+                    <select id="optSdtMode" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100">
+                      <option value="default" selected>Default ("FFmpeg" / "Service01")</option>
+                      <option value="custom">Kustom Provider &amp; Service</option>
+                      <option value="strip">Hapus SDT (Bersih Total)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="optTsExt" class="block text-xs font-medium text-slate-300 mb-1">Ekstensi File Download</label>
+                    <select id="optTsExt" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100">
+                      <option value="mp4" selected>.mp4 (Wadah MPEG-TS, nama .mp4)</option>
+                      <option value="ts">.ts (Transport Stream Standar)</option>
+                    </select>
+                  </div>
+                  <div id="sdtProviderField" class="hidden">
+                    <label for="sdtProvider" class="block text-[11px] text-slate-400 mb-1">Service Provider</label>
+                    <input id="sdtProvider" type="text" placeholder="Kosongkan" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-100" />
+                  </div>
+                  <div id="sdtServiceField" class="hidden">
+                    <label for="sdtService" class="block text-[11px] text-slate-400 mb-1">Service Name</label>
+                    <input id="sdtService" type="text" placeholder="Kosongkan" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono text-slate-100" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preview Argumen FFmpeg -->
+              <div class="pt-2 border-t border-slate-800">
+                <span class="block text-[11px] font-medium text-slate-400 mb-1">Perintah FFmpeg:</span>
+                <code id="cmdPreview" class="block bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-[11px] font-mono text-cyan-300 break-all">
+                  ffmpeg -i input.mp4 ...
+                </code>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <!-- CARD 3: Eksekusi & Log -->
+        <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">3</span>
+              Eksekusi &amp; Status
+            </h2>
+
+            <div class="flex items-center gap-2.5">
+              <button id="btnCancel" type="button" class="hidden px-4 py-2.5 rounded-xl text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition cursor-pointer">
+                Batal / Reset
+              </button>
+              <button id="btnProcess" type="button" disabled class="px-5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white shadow-lg shadow-indigo-500/20 transition cursor-pointer flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Proses Video Sekarang</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs">
+              <span id="statusText" class="text-slate-300 font-medium">Menunggu video sumber dipilih...</span>
+              <span id="progressPercent" class="font-mono text-indigo-400 font-semibold">0%</span>
+            </div>
+            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div id="progressBar" class="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-200" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Terminal Log -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] font-medium text-slate-400">Log FFmpeg &amp; Post-Processor</span>
+              <button id="btnClearLog" type="button" class="text-[11px] text-slate-500 hover:text-slate-300 cursor-pointer">Bersihkan Log</button>
+            </div>
+            <pre id="logConsole" class="bg-slate-950 border border-slate-800 rounded-xl p-3 h-32 overflow-y-auto font-mono text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">[Ready] Siap. Pilih video di Panel 1 lalu klik Proses Video Sekarang.</pre>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ==================== PANEL 4: HASIL & LAPORAN STRUKTUR ==================== -->
+    <section id="resultCard" class="hidden bg-slate-900 border border-emerald-500/40 rounded-2xl p-5 shadow-2xl space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-sm font-bold text-white">4. Hasil Output &amp; Verifikasi Struktur Atom / Stream</h2>
+            <p id="outMeta" class="text-xs text-slate-400 font-mono">-</p>
+          </div>
+        </div>
+
+        <a id="btnDownload" href="#" download="output.mp4" class="px-5 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>Download Video Hasil</span>
+        </a>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div class="lg:col-span-5 space-y-2">
+          <div class="rounded-xl overflow-hidden bg-black border border-slate-800">
+            <video id="outputPreview" controls playsinline class="w-full max-h-72 object-contain mx-auto"></video>
+          </div>
+          <p id="tsPreviewHint" class="hidden text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+            Catatan: Beberapa browser tidak memutar pratinjau MPEG-TS secara native, namun file unduhan valid sepenuhnya di VLC/MX Player.
+          </p>
+        </div>
+
+        <div class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-semibold text-emerald-300">Laporan Lengkap Struktur Output</span>
+            <div class="flex items-center gap-2">
+              <button id="btnCopyOutTree" type="button" class="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer">
+                Salin Laporan
+              </button>
+              <button id="btnDownloadOutTree" type="button" class="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer">
+                Download .txt
+              </button>
+            </div>
+          </div>
+          <pre id="outStructureTree" class="font-mono text-[11px] leading-relaxed text-slate-200 bg-slate-900/90 p-3 rounded-lg border border-slate-800 max-h-72 overflow-auto whitespace-pre"></pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module">
+    try {
+      // =========================================================================
+      // 1. REFERENSI ELEMEN DOM & STATE APLIKASI
+      // =========================================================================
+      const $ = (id) => document.getElementById(id);
+
+      const threadBadge = $('threadBadge');
+      const threadDot = $('threadDot');
+      const threadText = $('threadText');
+      const btnPreloadCore = $('btnPreloadCore');
+      const coiNotice = $('coiNotice');
+
+      const dropzone = $('dropzone');
+      const fileInput = $('fileInput');
+      const sourceErrorMsg = $('sourceErrorMsg');
+      const sourceInfo = $('sourceInfo');
+      const sourcePreview = $('sourcePreview');
+      const srcName = $('srcName');
+      const srcSize = $('srcSize');
+      const srcRes = $('srcRes');
+      const srcDur = $('srcDur');
+
+      const refDropzone = $('refDropzone');
+      const refFileInput = $('refFileInput');
+      const btnUseSourceAsRef = $('btnUseSourceAsRef');
+      const refStatusMsg = $('refStatusMsg');
+      const refPanel = $('refPanel');
+      const refFormat = $('refFormat');
+      const refResFps = $('refResFps');
+      const refCodecColor = $('refCodecColor');
+      const refMetaSummary = $('refMetaSummary');
+      const chkApplyRef = $('chkApplyRef');
+      const btnSyncRefParams = $('btnSyncRefParams');
+      const refMp4Options = $('refMp4Options');
+      const chkRefFtyp = $('chkRefFtyp');
+      const chkRefColr = $('chkRefColr');
+      const chkRefHdlr = $('chkRefHdlr');
+      const chkRefTime = $('chkRefTime');
+      const chkRefUdta = $('chkRefUdta');
+      const refTsOptions = $('refTsOptions');
+      const chkRefTsSdt = $('chkRefTsSdt');
+      const chkRefTsIds = $('chkRefTsIds');
+      const btnCopyRefTree = $('btnCopyRefTree');
+      const btnDownloadRefTree = $('btnDownloadRefTree');
+      const refStructureTree = $('refStructureTree');
+
+      const activePresetBadge = $('activePresetBadge');
+      const btnPresetMp4Social = $('btnPresetMp4Social');
+      const btnPresetTs = $('btnPresetTs');
+      const btnPresetSmartCut = $('btnPresetSmartCut');
+
+      const btnModeRemux = $('btnModeRemux');
+      const btnModeTranscode = $('btnModeTranscode');
+      const modeDesc = $('modeDesc');
+      const optContainer = $('optContainer');
+      const optAudio = $('optAudio');
+
+      const transcodeOptions = $('transcodeOptions');
+      const optRateMode = $('optRateMode');
+      const crfControl = $('crfControl');
+      const optCrf = $('optCrf');
+      const crfValueLabel = $('crfValueLabel');
+      const bitrateControl = $('bitrateControl');
+      const optBitrate = $('optBitrate');
+      const optPreset = $('optPreset');
+      const optResolution = $('optResolution');
+      const optFps = $('optFps');
+      const customResRow = $('customResRow');
+      const customW = $('customW');
+      const customH = $('customH');
+
+      const advancedCodecGrid = $('advancedCodecGrid');
+      const optProfile = $('optProfile');
+      const optLevel = $('optLevel');
+      const optColorRange = $('optColorRange');
+      const optBframes = $('optBframes');
+
+      const mp4MetaBox = $('mp4MetaBox');
+      const optMp4Layout = $('optMp4Layout');
+      const optMp4MetaMode = $('optMp4MetaMode');
+      const chkMp4FreeBox = $('chkMp4FreeBox');
+      const chkMp4ZeroTime = $('chkMp4ZeroTime');
+      const chkMp4StripBtrt = $('chkMp4StripBtrt');
+      const mp4ForgeFields = $('mp4ForgeFields');
+      const forgeArt = $('forgeArt');
+      const forgeCprt = $('forgeCprt');
+      const btnRegenHash = $('btnRegenHash');
+      const forgeAid = $('forgeAid');
+      const forgeBitrateVal = $('forgeBitrateVal');
+      const forgeTooPreview = $('forgeTooPreview');
+
+      const tsMetaBox = $('tsMetaBox');
+      const optSdtMode = $('optSdtMode');
+      const optTsExt = $('optTsExt');
+      const sdtProviderField = $('sdtProviderField');
+      const sdtProvider = $('sdtProvider');
+      const sdtServiceField = $('sdtServiceField');
+      const sdtService = $('sdtService');
+      const cmdPreview = $('cmdPreview');
+
+      const btnCancel = $('btnCancel');
+      const btnProcess = $('btnProcess');
+      const statusText = $('statusText');
+      const progressPercent = $('progressPercent');
+      const progressBar = $('progressBar');
+      const btnClearLog = $('btnClearLog');
+      const logConsole = $('logConsole');
+
+      const resultCard = $('resultCard');
+      const outMeta = $('outMeta');
+      const btnDownload = $('btnDownload');
+      const outputPreview = $('outputPreview');
+      const tsPreviewHint = $('tsPreviewHint');
+      const btnCopyOutTree = $('btnCopyOutTree');
+      const btnDownloadOutTree = $('btnDownloadOutTree');
+      const outStructureTree = $('outStructureTree');
+
+      let ffmpeg = null;
+      let isCoreLoaded = false;
+      let isLoadingCore = false;
+      let isProcessing = false;
+      let mode = 'transcode';
+      let selectedFile = null;
+      let selectedFileBytes = null;
+      let lastSourcePreviewUrl = null;
+      let lastOutputUrl = null;
+      let refProfile = null;
+      const sourceMeta = { width: 1080, height: 1920, durationMs: 5000 };
+
+      // =========================================================================
+      // 2. UTILITAS UMUM & BACA FILE AMAN GALERI
+      // =========================================================================
+      function supportsMultiThread() {
+        return typeof SharedArrayBuffer !== 'undefined' && window.crossOriginIsolated === true;
+      }
+
+      function formatBytes(bytes) {
+        if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+      }
+
+      function formatNumber(n) {
+        return Number(n).toLocaleString('en-US');
+      }
+
+      function toHex(num, pad = 8) {
+        return '0x' + (num >>> 0).toString(16).toUpperCase().padStart(pad, '0');
+      }
+
+      function appendLog(msg) {
+        if (!msg) return;
+        const line = String(msg).trim();
+        if (!line) return;
+        logConsole.textContent += (logConsole.textContent ? '\n' : '') + line;
+        logConsole.scrollTop = logConsole.scrollHeight;
+      }
+
+      function setProgress(pct, text) {
+        const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+        progressBar.style.width = `${clamped}%`;
+        progressPercent.textContent = `${clamped}%`;
+        if (text) statusText.textContent = text;
+      }
+
+      function generateRandomHex32() {
+        const arr = new Uint8Array(16);
+        crypto.getRandomValues(arr);
+        return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      async function readFileBytesSafely(file) {
+        if (typeof file.arrayBuffer === 'function') {
+          try {
+            const buf = await file.arrayBuffer();
+            return new Uint8Array(buf);
+          } catch (_) {
+            // Fallback ke FileReader jika Android content:// menolak arrayBuffer()
+          }
+        }
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(new Uint8Array(reader.result));
+          reader.onerror = () => reject(reader.error || new Error('File tidak dapat dibaca dari penyimpanan.'));
+          reader.readAsArrayBuffer(file);
+        });
+      }
+
+      function copyTextToClipboard(text, btnEl) {
+        const ta = document.createElement('textarea');
+        ta.value = text || '';
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          if (btnEl) {
+            const orig = btnEl.textContent;
+            btnEl.textContent = 'Tersalin ✓';
+            setTimeout(() => { btnEl.textContent = orig; }, 1500);
+          }
+        } catch (_) {}
+        document.body.removeChild(ta);
+      }
+
+      function downloadTextFile(text, filename) {
+        const blob = new Blob([text || ''], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      // =========================================================================
+      // 3. PRESET FITUR 1, 2, DAN 3
+      // =========================================================================
+      function setPresetCardState(activeId) {
+        const cards = [
+          { el: btnPresetMp4Social, id: 'mp4_social', ring: 'border-2 border-indigo-500 bg-indigo-500/10', dot: 'bg-indigo-400', label: 'Fitur 1: MP4 Sosial (High L5.2)' },
+          { el: btnPresetTs, id: 'mpegts', ring: 'border-2 border-cyan-500 bg-cyan-500/10', dot: 'bg-cyan-400', label: 'Fitur 2: MPEG-TS Stream (.mp4)' },
+          { el: btnPresetSmartCut, id: 'smartcut', ring: 'border-2 border-emerald-500 bg-emerald-500/10', dot: 'bg-emerald-400', label: 'Fitur 3: MP4 Smart-Cut (moov Akhir)' }
+        ];
+        let matched = null;
+        for (const c of cards) {
+          const dot = c.el.querySelector('.preset-dot');
+          if (c.id === activeId) {
+            c.el.className = `preset-card text-left p-3.5 rounded-2xl ${c.ring} transition cursor-pointer relative`;
+            if (dot) dot.className = `preset-dot w-2.5 h-2.5 rounded-full ${c.dot}`;
+            matched = c;
+          } else {
+            c.el.className = 'preset-card text-left p-3.5 rounded-2xl border border-slate-700/90 bg-slate-950/60 hover:border-slate-500 hover:bg-slate-950 transition cursor-pointer relative';
+            if (dot) dot.className = 'preset-dot w-2.5 h-2.5 rounded-full bg-slate-700';
+          }
+        }
+        activePresetBadge.textContent = matched ? matched.label : 'Mode Kustom';
+      }
+
+      function buildDynamicTooJson() {
+        let w = sourceMeta.width || 1080;
+        let h = sourceMeta.height || 1920;
+        if (optResolution.value === 'custom') {
+          w = parseInt(customW.value, 10) || w;
+          h = parseInt(customH.value, 10) || h;
+        } else if (optResolution.value !== 'original') {
+          const parts = optResolution.value.split('x');
+          w = parseInt(parts[0], 10) || w;
+          h = parseInt(parts[1], 10) || h;
+        }
+        const dur = String(sourceMeta.durationMs || 5000);
+        const br = String(forgeBitrateVal.value.trim() || '11156000');
+        const maxBr = String((parseInt(br, 10) || 11156000) * 2);
+        const aid = String(forgeAid.value.trim() || '2004');
+        return JSON.stringify({
+          aid,
+          libevc: '1',
+          trans_type: '2',
+          te_is_reencode: mode === 'transcode' ? '1' : '0',
+          te_is_use_ai_predict: '0',
+          bitrate: br,
+          maxrate: maxBr,
+          video_resolution: JSON.stringify({ width: w, height: h }),
+          video_duration: dur,
+          delivery_source: '2',
+          prop_list: JSON.stringify({ biz: [21], mid: [23] }),
+          effect_list: '{}',
+          extra: '{}'
+        });
+      }
+
+      function updateForgePreview() {
+        if (forgeTooPreview) {
+          forgeTooPreview.textContent = buildDynamicTooJson();
+        }
+      }
+
+      function applyPresetMp4Social() {
+        setPresetCardState('mp4_social');
+        optContainer.value = 'mp4';
+        switchMode('transcode');
+        optRateMode.value = 'crf';
+        crfControl.classList.remove('hidden');
+        bitrateControl.classList.add('hidden');
+        optCrf.value = '18';
+        crfValueLabel.textContent = '18';
+        optProfile.value = 'high';
+        optLevel.value = '5.2';
+        optColorRange.value = 'bt709_tv';
+        optBframes.value = '2';
+        optMp4Layout.value = 'faststart';
+        optMp4MetaMode.value = 'forge';
+        chkMp4FreeBox.checked = true;
+        chkMp4ZeroTime.checked = true;
+        chkMp4StripBtrt.checked = true;
+        if (!forgeCprt.value) forgeCprt.value = generateRandomHex32();
+        updateContainerUI();
+      }
+
+      function applyPresetTs() {
+        setPresetCardState('mpegts');
+        optContainer.value = 'mpegts';
+        switchMode('remux');
+        optSdtMode.value = 'default';
+        optTsExt.value = 'mp4';
+        sdtProviderField.classList.add('hidden');
+        sdtServiceField.classList.add('hidden');
+        updateContainerUI();
+      }
+
+      function applyPresetSmartCut() {
+        setPresetCardState('smartcut');
+        optContainer.value = 'mp4';
+        switchMode('transcode');
+        optRateMode.value = 'crf';
+        crfControl.classList.remove('hidden');
+        bitrateControl.classList.add('hidden');
+        optCrf.value = '20';
+        crfValueLabel.textContent = '20';
+        optProfile.value = 'high';
+        optLevel.value = '4.2';
+        optColorRange.value = 'bt709_tv_nopasp';
+        optBframes.value = '2';
+        optMp4Layout.value = 'smartcut';
+        optMp4MetaMode.value = 'empty_ilst';
+        chkMp4FreeBox.checked = false;
+        chkMp4ZeroTime.checked = true;
+        chkMp4StripBtrt.checked = false;
+        updateContainerUI();
+      }
+
+      // =========================================================================
+      // 4. PARSER & POST-PROCESSOR ATOM MP4 (ISO BMFF)
+      // =========================================================================
+      function readFourCC(bytes, offset) {
+        return String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
+      }
+
+      function writeFourCC(bytes, offset, str) {
+        for (let i = 0; i < 4; i++) bytes[offset + i] = str.charCodeAt(i) & 0xFF;
+      }
+
+      function readUint32BE(bytes, offset) {
+        return ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0;
+      }
+
+      function writeUint32BE(bytes, offset, val) {
+        bytes[offset] = (val >>> 24) & 0xFF;
+        bytes[offset + 1] = (val >>> 16) & 0xFF;
+        bytes[offset + 2] = (val >>> 8) & 0xFF;
+        bytes[offset + 3] = val & 0xFF;
+      }
+
+      function readUint64BE(bytes, offset) {
+        const hi = readUint32BE(bytes, offset);
+        const lo = readUint32BE(bytes, offset + 4);
+        return hi * 4294967296 + lo;
+      }
+
+      function writeUint64BE(bytes, offset, val) {
+        const hi = Math.floor(val / 4294967296);
+        const lo = val >>> 0;
+        writeUint32BE(bytes, offset, hi);
+        writeUint32BE(bytes, offset + 4, lo);
+      }
+
+      function makeAtom(type, payload) {
+        const out = new Uint8Array(8 + payload.length);
+        writeUint32BE(out, 0, out.length);
+        writeFourCC(out, 4, type);
+        out.set(payload, 8);
+        return out;
+      }
+
+      function makeFullAtom(type, version, flags, payload) {
+        const out = new Uint8Array(12 + payload.length);
+        writeUint32BE(out, 0, out.length);
+        writeFourCC(out, 4, type);
+        out[8] = version & 0xFF;
+        out[9] = (flags >>> 16) & 0xFF;
+        out[10] = (flags >>> 8) & 0xFF;
+        out[11] = flags & 0xFF;
+        out.set(payload, 12);
+        return out;
+      }
+
+      function concatUint8(chunks) {
+        let total = 0;
+        for (const c of chunks) total += c.length;
+        const out = new Uint8Array(total);
+        let pos = 0;
+        for (const c of chunks) {
+          out.set(c, pos);
+          pos += c.length;
+        }
+        return out;
+      }
+
+      function readChildBoxes(bytes, start, end) {
+        const boxes = [];
+        let pos = start;
+        while (pos + 8 <= end) {
+          let size = readUint32BE(bytes, pos);
+          const type = readFourCC(bytes, pos + 4);
+          let headerSize = 8;
+          if (size === 1) {
+            if (pos + 16 > end) break;
+            size = readUint64BE(bytes, pos + 8);
+            headerSize = 16;
+          } else if (size === 0) {
+            size = end - pos;
+          }
+          if (size < headerSize || pos + size > end) break;
+          boxes.push({ type, start: pos, size, headerSize, dataStart: pos + headerSize, dataEnd: pos + size });
+          pos += size;
+        }
+        return boxes;
+      }
+
+      function buildUdtaFromItems(items) {
+        const enc = new TextEncoder();
+        const itemBoxes = [];
+        for (const it of items) {
+          const textBytes = enc.encode(it.value);
+          const dataPayload = new Uint8Array(8 + textBytes.length);
+          writeUint32BE(dataPayload, 0, 1); // UTF-8
+          writeUint32BE(dataPayload, 4, 0); // Locale 0
+          dataPayload.set(textBytes, 8);
+          const dataAtom = makeAtom('data', dataPayload);
+          itemBoxes.push(makeAtom(it.tag, dataAtom));
+        }
+        const ilst = makeAtom('ilst', concatUint8(itemBoxes));
+        const hdlrPayload = new Uint8Array(21);
+        writeFourCC(hdlrPayload, 4, 'mdir');
+        writeFourCC(hdlrPayload, 8, 'appl');
+        hdlrPayload[20] = 0;
+        const hdlr = makeFullAtom('hdlr', 0, 0, hdlrPayload);
+        const meta = makeFullAtom('meta', 0, 0, concatUint8([hdlr, ilst]));
+        return makeAtom('udta', meta);
+      }
+
+      function buildEmptyIlstUdta() {
+        const ilst = makeAtom('ilst', new Uint8Array(0)); // 8 bytes
+        const hdlrPayload = new Uint8Array(21);
+        writeFourCC(hdlrPayload, 4, 'mdir');
+        const hdlr = makeFullAtom('hdlr', 0, 0, hdlrPayload); // 33 bytes
+        const meta = makeFullAtom('meta', 0, 0, concatUint8([hdlr, ilst])); // 53 bytes
+        return makeAtom('udta', meta); // 61 bytes
+      }
+
+      function transformBoxRecursive(boxBytes, opts) {
+        const type = readFourCC(boxBytes, 4);
+        const headerSize = 8;
+        const body = boxBytes.subarray(headerSize);
+
+        // Zero timestamps pada mvhd / tkhd / mdhd
+        if (opts.zeroTime && (type === 'mvhd' || type === 'tkhd' || type === 'mdhd') && body.length >= 12) {
+          const copy = new Uint8Array(boxBytes);
+          const ver = copy[8];
+          if (ver === 0 && copy.length >= 20) {
+            writeUint32BE(copy, 12, 0);
+            writeUint32BE(copy, 16, 0);
+          } else if (ver === 1 && copy.length >= 28) {
+            writeUint64BE(copy, 12, 0);
+            writeUint64BE(copy, 20, 0);
+          }
+          return copy;
+        }
+
+        // Kloning hdlr / colr / pasp dari referensi bila dipilih
+        if (opts.refColr && type === 'colr') return new Uint8Array(opts.refColr);
+        if (opts.refPasp && type === 'pasp') return new Uint8Array(opts.refPasp);
+        if (opts.refHdlrVide && type === 'hdlr' && body.length >= 12 && readFourCC(body, 4) === 'vide') {
+          return new Uint8Array(opts.refHdlrVide);
+        }
+
+        // Container atoms yang punya child boxes
+        const containers = ['moov', 'trak', 'mdia', 'minf', 'stbl', 'edts', 'dinf', 'udta'];
+        if (containers.includes(type)) {
+          const children = readChildBoxes(boxBytes, headerSize, boxBytes.length);
+          const outChunks = [];
+          for (const ch of children) {
+            if (type === 'moov' && ch.type === 'udta') {
+              // udta diatur terpisah di level moov
+              continue;
+            }
+            const rawChild = boxBytes.subarray(ch.start, ch.dataEnd);
+            outChunks.push(transformBoxRecursive(rawChild, opts));
+          }
+          if (type === 'moov' && opts.customUdta) {
+            outChunks.push(opts.customUdta);
+          }
+          return makeAtom(type, concatUint8(outChunks));
+        }
+
+        // Sample description box (stsd) -> bersihkan btrt dari dalam avc1/hvc1 jika dicentang
+        if (type === 'stsd' && body.length >= 8) {
+          const entryCount = readUint32BE(body, 4);
+          let pos = 8;
+          const entries = [];
+          for (let i = 0; i < entryCount && pos + 8 <= body.length; i++) {
+            const eSize = readUint32BE(body, pos);
+            const eType = readFourCC(body, pos + 4);
+            if (eSize < 8 || pos + eSize > body.length) break;
+            const entryRaw = body.subarray(pos, pos + eSize);
+            if ((eType === 'avc1' || eType === 'avc3' || eType === 'hvc1' || eType === 'hev1') && entryRaw.length > 86) {
+              const fixedHeader = entryRaw.subarray(0, 86);
+              const subBoxes = readChildBoxes(entryRaw, 86, entryRaw.length);
+              const subChunks = [];
+              let hasPasp = false;
+              for (const sb of subBoxes) {
+                if (opts.stripBtrt && sb.type === 'btrt') continue;
+                if (sb.type === 'pasp') hasPasp = true;
+                subChunks.push(transformBoxRecursive(entryRaw.subarray(sb.start, sb.dataEnd), opts));
+              }
+              if (!hasPasp && opts.refPasp) subChunks.push(new Uint8Array(opts.refPasp));
+              entries.push(makeAtom(eType, concatUint8([fixedHeader.subarray(8), ...subChunks])));
+            } else {
+              entries.push(new Uint8Array(entryRaw));
+            }
+            pos += eSize;
+          }
+          const stsdHead = new Uint8Array(8);
+          stsdHead.set(body.subarray(0, 8));
+          return makeAtom('stsd', concatUint8([stsdHead, ...entries]));
+        }
+
+        return new Uint8Array(boxBytes);
+      }
+
+      function shiftChunkOffsetsInMoov(moovBytes, delta) {
+        if (!delta) return moovBytes;
+        const copy = new Uint8Array(moovBytes);
+        function walk(start, end) {
+          const boxes = readChildBoxes(copy, start, end);
+          for (const b of boxes) {
+            if (b.type === 'stco' && b.size >= 16) {
+              const count = readUint32BE(copy, b.dataStart + 4);
+              for (let i = 0; i < count; i++) {
+                const off = b.dataStart + 8 + i * 4;
+                if (off + 4 <= b.dataEnd) {
+                  writeUint32BE(copy, off, (readUint32BE(copy, off) + delta) >>> 0);
+                }
+              }
+            } else if (b.type === 'co64' && b.size >= 16) {
+              const count = readUint32BE(copy, b.dataStart + 4);
+              for (let i = 0; i < count; i++) {
+                const off = b.dataStart + 8 + i * 8;
+                if (off + 8 <= b.dataEnd) {
+                  writeUint64BE(copy, off, readUint64BE(copy, off) + delta);
+                }
+              }
+            } else if (['moov', 'trak', 'mdia', 'minf', 'stbl'].includes(b.type)) {
+              walk(b.dataStart, b.dataEnd);
+            }
+          }
+        }
+        walk(8, copy.length);
+        return copy;
+      }
+
+      function duplicateAudioTrackInMoov(moovBytes) {
+        const children = readChildBoxes(moovBytes, 8, moovBytes.length);
+        const chunks = [];
+        let maxTrackId = 0;
+        let audioTrakRaw = null;
+
+        for (const ch of children) {
+          const raw = moovBytes.subarray(ch.start, ch.dataEnd);
+          if (ch.type === 'trak') {
+            const sub = readChildBoxes(raw, 8, raw.length);
+            for (const s of sub) {
+              if (s.type === 'tkhd' && s.size >= 24) {
+                const ver = raw[s.dataStart];
+                const tid = ver === 1 ? readUint32BE(raw, s.dataStart + 20) : readUint32BE(raw, s.dataStart + 12);
+                if (tid > maxTrackId) maxTrackId = tid;
+              }
+              if (s.type === 'mdia') {
+                const mSub = readChildBoxes(raw, s.dataStart, s.dataEnd);
+                for (const ms of mSub) {
+                  if (ms.type === 'hdlr' && ms.size >= 20 && readFourCC(raw, ms.dataStart + 4) === 'soun') {
+                    audioTrakRaw = raw;
+                  }
+                }
+              }
+            }
+          }
+          if (ch.type !== 'udta') chunks.push(new Uint8Array(raw));
+        }
+
+        if (audioTrakRaw) {
+          const clonedTrak = new Uint8Array(audioTrakRaw);
+          const sub = readChildBoxes(clonedTrak, 8, clonedTrak.length);
+          for (const s of sub) {
+            if (s.type === 'tkhd' && s.size >= 24) {
+              const ver = clonedTrak[s.dataStart];
+              const off = ver === 1 ? s.dataStart + 20 : s.dataStart + 12;
+              writeUint32BE(clonedTrak, off, maxTrackId + 1);
+            }
+          }
+          chunks.push(clonedTrak);
+        }
+
+        for (const ch of children) {
+          if (ch.type === 'udta') chunks.push(new Uint8Array(moovBytes.subarray(ch.start, ch.dataEnd)));
+        }
+        return makeAtom('moov', concatUint8(chunks));
+      }
+
+      function postProcessMp4Output(rawBytes) {
+        const topBoxes = readChildBoxes(rawBytes, 0, rawBytes.length);
+        let ftypBox = null;
+        let moovBox = null;
+        const mdatBoxes = [];
+
+        for (const tb of topBoxes) {
+          const slice = rawBytes.subarray(tb.start, tb.dataEnd);
+          if (tb.type === 'ftyp') ftypBox = new Uint8Array(slice);
+          else if (tb.type === 'moov') moovBox = new Uint8Array(slice);
+          else if (tb.type === 'mdat') mdatBoxes.push(new Uint8Array(slice));
+        }
+
+        if (!ftypBox || !moovBox || mdatBoxes.length === 0) return rawBytes;
+
+        const useRef = chkApplyRef.checked && refProfile && refProfile.kind === 'mp4';
+        if (useRef && chkRefFtyp.checked && refProfile.ftypBytes) {
+          ftypBox = new Uint8Array(refProfile.ftypBytes);
+        }
+
+        // Susun custom udta sesuai pilihan mode metadata
+        let customUdta = null;
+        const metaMode = optMp4MetaMode.value;
+        if (metaMode === 'forge') {
+          customUdta = buildUdtaFromItems([
+            { tag: '©ART', value: forgeArt.value.trim() || 'editingnews.com' },
+            { tag: '©too', value: buildDynamicTooJson() },
+            { tag: 'cprt', value: forgeCprt.value.trim() || generateRandomHex32() }
+          ]);
+        } else if (metaMode === 'ref') {
+          if (useRef && chkRefUdta.checked && refProfile.udtaBytes) {
+            customUdta = new Uint8Array(refProfile.udtaBytes);
+          } else {
+            customUdta = null; // Bersihkan Lavf bawaan bila referensi kosong
+          }
+        } else if (metaMode === 'empty_ilst') {
+          customUdta = buildEmptyIlstUdta();
+        } else {
+          customUdta = null;
+        }
+
+        let newMoov = transformBoxRecursive(moovBox, {
+          zeroTime: chkMp4ZeroTime.checked,
+          stripBtrt: chkMp4StripBtrt.checked,
+          refColr: (useRef && chkRefColr.checked) ? refProfile.colrBytes : null,
+          refPasp: (useRef && chkRefColr.checked) ? refProfile.paspBytes : null,
+          refHdlrVide: (useRef && chkRefHdlr.checked) ? refProfile.hdlrVideBytes : null,
+          customUdta
+        });
+
+        const origMdatStart = topBoxes.find(b => b.type === 'mdat').start;
+
+        if (optMp4Layout.value === 'smartcut') {
+          // Layout Smart-Cut: ftyp (32B) -> free (42,375B) -> free (8B) -> mdat -> mdat (104B) -> moov akhir
+          newMoov = duplicateAudioTrackInMoov(newMoov);
+          const free1 = makeAtom('free', new Uint8Array(42375 - 8));
+          const free2 = makeAtom('free', new Uint8Array(0)); // 8B
+          const mdat2 = makeAtom('mdat', new Uint8Array(104 - 8));
+          const newMdatStart = ftypBox.length + free1.length + free2.length;
+          const delta = newMdatStart - origMdatStart;
+          newMoov = shiftChunkOffsetsInMoov(newMoov, delta);
+          return concatUint8([ftypBox, free1, free2, ...mdatBoxes, mdat2, newMoov]);
+        }
+
+        // Layout Faststart: ftyp -> moov -> [free 8B] -> mdat
+        const free8 = chkMp4FreeBox.checked ? makeAtom('free', new Uint8Array(0)) : new Uint8Array(0);
+        const newMdatStart = ftypBox.length + newMoov.length + free8.length;
+        const delta = newMdatStart - origMdatStart;
+        newMoov = shiftChunkOffsetsInMoov(newMoov, delta);
+        return concatUint8([ftypBox, newMoov, free8, ...mdatBoxes]);
+      }
+
+      // =========================================================================
+      // 5. INSPEKTOR POHON ATOM MP4 & LAPORAN LENGKAP
+      // =========================================================================
+      function parseMp4AndBuildReport(fileName, fileSize, topBoxes, loadedMap) {
+        const lines = [];
+        lines.push('====================================================================');
+        lines.push('MP4 ATOM STRUCTURE & METADATA ANALYSIS REPORT');
+        lines.push('====================================================================');
+        lines.push(`File Name   : ${fileName}`);
+        lines.push(`File Size   : ${formatNumber(fileSize)} bytes (${formatBytes(fileSize)})`);
+        lines.push('');
+        lines.push('--- [1] TOP-LEVEL BOXES ---');
+        for (const tb of topBoxes) {
+          lines.push(`- ${tb.type.padEnd(6, ' ')} | offset=${toHex(tb.start)} (${formatNumber(tb.start)}) | size=${formatNumber(tb.size)} B`);
+        }
+
+        const ilstTags = [];
+        const treeLines = [];
+        const profileInfo = {
+          kind: 'mp4',
+          width: 0,
+          height: 0,
+          fps: 0,
+          avcProfile: '',
+          avcLevel: '',
+          isBt709Tv: false,
+          hasPasp: false,
+          hasBtrt: false,
+          hasFree8BeforeMdat: false,
+          isZeroTime: true,
+          isSmartCutLayout: false,
+          isEmptyIlst: false,
+          ftypBytes: null,
+          udtaBytes: null,
+          colrBytes: null,
+          paspBytes: null,
+          hdlrVideBytes: null
+        };
+
+        // Deteksi tata letak top-level
+        const typesSeq = topBoxes.map(b => b.type);
+        if (typesSeq.indexOf('moov') > typesSeq.indexOf('mdat') && typesSeq.indexOf('mdat') !== -1) {
+          profileInfo.isSmartCutLayout = true;
+        }
+        const mdatIdx = typesSeq.indexOf('mdat');
+        if (mdatIdx > 0 && topBoxes[mdatIdx - 1].type === 'free' && topBoxes[mdatIdx - 1].size === 8) {
+          profileInfo.hasFree8BeforeMdat = true;
+        }
+
+        const dec = new TextDecoder('utf-8', { fatal: false });
+
+        function walkTree(buf, baseOffset, start, end, depth) {
+          const pad = '  '.repeat(depth);
+          const detPad = '  '.repeat(depth + 2);
+          const boxes = readChildBoxes(buf, start, end);
+
+          for (const b of boxes) {
+            const absOff = baseOffset + b.start;
+            const rawBox = buf.subarray(b.start, b.dataEnd);
+            let summary = '';
+            const details = [];
+
+            if (b.type === 'ftyp' && b.size >= 16) {
+              profileInfo.ftypBytes = new Uint8Array(rawBox);
+              const major = readFourCC(buf, b.dataStart);
+              const minor = readUint32BE(buf, b.dataStart + 4);
+              const brands = [];
+              for (let p = b.dataStart + 8; p + 4 <= b.dataEnd; p += 4) brands.push(readFourCC(buf, p));
+              summary = ` — major=${major} [${brands.join(', ')}]`;
+              details.push(`Major Brand: ${major}`, `Minor Version: ${minor}`, `Compatible Brands: ${brands.join(', ')}`);
+            } else if (b.type === 'mvhd' && b.size >= 28) {
+              const ver = buf[b.dataStart];
+              const cTime = ver === 1 ? readUint64BE(buf, b.dataStart + 4) : readUint32BE(buf, b.dataStart + 4);
+              const mTime = ver === 1 ? readUint64BE(buf, b.dataStart + 12) : readUint32BE(buf, b.dataStart + 8);
+              const ts = ver === 1 ? readUint32BE(buf, b.dataStart + 20) : readUint32BE(buf, b.dataStart + 12);
+              const dur = ver === 1 ? readUint64BE(buf, b.dataStart + 24) : readUint32BE(buf, b.dataStart + 16);
+              if (cTime !== 0 || mTime !== 0) profileInfo.isZeroTime = false;
+              const sec = ts ? (dur / ts).toFixed(3) : '0.000';
+              summary = ` — ${sec}s | timescale=${ts}`;
+              details.push(
+                `Version: ${ver}`,
+                `Creation Time: ${cTime === 0 ? '0 (Tidak diset)' : cTime}`,
+                `Modification Time: ${mTime === 0 ? '0 (Tidak diset)' : mTime}`,
+                `Timescale: ${ts} units/detik`,
+                `Duration: ${dur} (${sec} detik)`
+              );
+            } else if (b.type === 'tkhd' && b.size >= 84) {
+              const ver = buf[b.dataStart];
+              const tid = ver === 1 ? readUint32BE(buf, b.dataStart + 20) : readUint32BE(buf, b.dataStart + 12);
+              const wOff = ver === 1 ? b.dataStart + 84 : b.dataStart + 72;
+              const w = (readUint32BE(buf, wOff) / 65536).toFixed(2);
+              const h = (readUint32BE(buf, wOff + 4) / 65536).toFixed(2);
+              if (parseFloat(w) > 0 && parseFloat(h) > 0) {
+                profileInfo.width = Math.round(parseFloat(w));
+                profileInfo.height = Math.round(parseFloat(h));
+              }
+              summary = ` — track #${tid} | ${w}×${h}`;
+              details.push(`Track ID: ${tid}`, `Display Size: ${w} × ${h} px`);
+            } else if (b.type === 'mdhd' && b.size >= 24) {
+              const ver = buf[b.dataStart];
+              const ts = ver === 1 ? readUint32BE(buf, b.dataStart + 20) : readUint32BE(buf, b.dataStart + 12);
+              const dur = ver === 1 ? readUint64BE(buf, b.dataStart + 24) : readUint32BE(buf, b.dataStart + 16);
+              const langOff = ver === 1 ? b.dataStart + 32 : b.dataStart + 20;
+              const langCode = (buf[langOff] << 8) | buf[langOff + 1];
+              const c1 = String.fromCharCode(((langCode >> 10) & 0x1F) + 0x60);
+              const c2 = String.fromCharCode(((langCode >> 5) & 0x1F) + 0x60);
+              const c3 = String.fromCharCode((langCode & 0x1F) + 0x60);
+              const sec = ts ? (dur / ts).toFixed(3) : '0.000';
+              summary = ` — ts=${ts} | lang=${c1}${c2}${c3}`;
+              details.push(`Timescale: ${ts}`, `Duration: ${dur} (${sec} detik)`, `Language: ${c1}${c2}${c3}`);
+            } else if (b.type === 'hdlr' && b.size >= 20) {
+              const hType = readFourCC(buf, b.dataStart + 4);
+              let hName = dec.decode(buf.subarray(b.dataStart + 20, b.dataEnd)).replace(/\0+$/, '');
+              if (!hName) hName = '-';
+              if (hType === 'vide') profileInfo.hdlrVideBytes = new Uint8Array(rawBox);
+              summary = ` — ${hType} (${hName})`;
+              details.push(`Handler Type: ${hType}`, `Handler Name: ${hName}`);
+            } else if (b.type === 'avcC' && b.size >= 12) {
+              const prof = buf[b.dataStart + 1];
+              const lvl = (buf[b.dataStart + 3] / 10).toFixed(1);
+              const profName = prof === 100 ? 'High' : (prof === 77 ? 'Main' : (prof === 66 ? 'Baseline' : `Profile ${prof}`));
+              profileInfo.avcProfile = profName.toLowerCase();
+              profileInfo.avcLevel = lvl;
+              summary = ` — H.264 ${profName} L${lvl}`;
+              details.push(`AVC Profile: ${profName} (${prof})`, `AVC Level: ${lvl}`);
+            } else if (b.type === 'colr' && b.size >= 19) {
+              profileInfo.colrBytes = new Uint8Array(rawBox);
+              const cType = readFourCC(buf, b.dataStart);
+              if (cType === 'nclx') {
+                const prim = (buf[b.dataStart + 4] << 8) | buf[b.dataStart + 5];
+                const trc = (buf[b.dataStart + 6] << 8) | buf[b.dataStart + 7];
+                const mat = (buf[b.dataStart + 8] << 8) | buf[b.dataStart + 9];
+                const fullRange = (buf[b.dataStart + 10] & 0x80) !== 0;
+                if (prim === 1 && !fullRange) profileInfo.isBt709Tv = true;
+                summary = ` — nclx | ${prim === 1 ? '1 (BT.709 / sRGB)' : prim}`;
+                details.push(`Colour Type: nclx`, `Primaries: ${prim}`, `Transfer: ${trc}`, `Matrix: ${mat}`, `Range: ${fullRange ? 'Full (PC)' : 'Limited (TV)'}`);
+              }
+            } else if (b.type === 'pasp' && b.size >= 16) {
+              profileInfo.hasPasp = true;
+              profileInfo.paspBytes = new Uint8Array(rawBox);
+              const hSp = readUint32BE(buf, b.dataStart);
+              const vSp = readUint32BE(buf, b.dataStart + 4);
+              summary = ` — SAR ${hSp}:${vSp}`;
+              details.push(`hSpacing: ${hSp}`, `vSpacing: ${vSp}`);
+            } else if (b.type === 'btrt') {
+              profileInfo.hasBtrt = true;
+            } else if (b.type === 'stsz' && b.size >= 20) {
+              const sampleCount = readUint32BE(buf, b.dataStart + 8);
+              summary = ` — ${sampleCount} samples`;
+              details.push(`Sample Count: ${sampleCount}`);
+            } else if (b.type === 'stss' && b.size >= 16) {
+              const kfCount = readUint32BE(buf, b.dataStart + 4);
+              summary = ` — ${kfCount} keyframes`;
+              details.push(`Sync Sample (Keyframe) Count: ${kfCount}`);
+            } else if (b.type === 'stco' && b.size >= 16) {
+              const entryCount = readUint32BE(buf, b.dataStart + 4);
+              const firstOff = entryCount > 0 && b.size >= 20 ? readUint32BE(buf, b.dataStart + 8) : 0;
+              summary = ` — ${entryCount} chunk offsets`;
+              details.push(`Entry Count: ${entryCount}`, `First Offset: ${toHex(firstOff)} (${formatNumber(firstOff)})`);
+            } else if (b.type === 'udta') {
+              profileInfo.udtaBytes = new Uint8Array(rawBox);
+            } else if (b.type === 'ilst') {
+              if (b.size === 8) profileInfo.isEmptyIlst = true;
+            } else if (b.type === 'data' && b.size >= 16) {
+              const typeInd = readUint32BE(buf, b.dataStart);
+              const valStr = dec.decode(buf.subarray(b.dataStart + 8, b.dataEnd));
+              const shortPreview = valStr.length > 48 ? valStr.slice(0, 48) + '...' : valStr;
+              summary = ` — "${shortPreview}"`;
+              details.push(`Type Indicator: ${typeInd} (UTF-8 Text)`, `UTF-8 Value: ${valStr}`);
+            }
+
+            treeLines.push(`${pad}[${b.type}] offset=${toHex(absOff)} size=${formatNumber(b.size)}B${summary}`);
+            for (const d of details) treeLines.push(`${detPad}• ${d}`);
+
+            // Rekursi ke child atoms
+            if (['moov', 'trak', 'mdia', 'minf', 'stbl', 'edts', 'dinf', 'udta', 'ilst'].includes(b.type)) {
+              walkTree(buf, baseOffset, b.dataStart, b.dataEnd, depth + 1);
+            } else if (b.type === 'meta' && b.size >= 12) {
+              walkTree(buf, baseOffset, b.dataStart + 4, b.dataEnd, depth + 1);
+            } else if (b.type === 'stsd' && b.size >= 16) {
+              walkTree(buf, baseOffset, b.dataStart + 8, b.dataEnd, depth + 1);
+            } else if ((b.type === 'avc1' || b.type === 'avc3' || b.type === 'hvc1' || b.type === 'hev1') && b.size > 86) {
+              walkTree(buf, baseOffset, b.dataStart + 78, b.dataEnd, depth + 1);
+            } else if (b.type === 'dref' && b.size >= 16) {
+              walkTree(buf, baseOffset, b.dataStart + 8, b.dataEnd, depth + 1);
+            } else if (b.dataEnd - b.dataStart >= 8 && readFourCC(buf, b.dataStart + 4) === 'data') {
+              const dAtom = readChildBoxes(buf, b.dataStart, b.dataEnd)[0];
+              if (dAtom && dAtom.size >= 16) {
+                const tagVal = dec.decode(buf.subarray(dAtom.dataStart + 8, dAtom.dataEnd));
+                ilstTags.push({ tag: b.type, value: tagVal });
+              }
+              walkTree(buf, baseOffset, b.dataStart, b.dataEnd, depth + 1);
+            }
+          }
+        }
+
+        for (const tb of topBoxes) {
+          if (tb.type === 'mdat') {
+            treeLines.push(`[mdat] offset=${toHex(tb.start)} size=${formatNumber(tb.size)}B`);
+          } else {
+            const boxBuf = loadedMap.get(tb.start);
+            if (boxBuf) walkTree(boxBuf, tb.start, 0, boxBuf.length, 0);
+          }
+        }
+
+        lines.push('');
+        lines.push('--- [2] METADATA TAGS (iTunes / ilst) ---');
+        if (ilstTags.length === 0) {
+          lines.push('(Tidak ada tag metadata iTunes / ilst)');
+        } else {
+          for (const t of ilstTags) lines.push(`- ${t.tag}: ${t.value}`);
+        }
+
+        lines.push('');
+        lines.push('--- [3] FULL RECURSIVE ATOM TREE ---');
+        lines.push(...treeLines);
+
+        return {
+          reportText: lines.join('\n'),
+          profileInfo,
+          ilstTags
+        };
+      }
+
+      // =========================================================================
+      // 6. ANALISA MPEG-TS (188 / 192 BYTE + HEX DUMP TRAILING BYTES)
+      // =========================================================================
+      function analyzeMpegTsBuffer(bytes, fileName) {
+        let pktSize = 188;
+        let syncOffset = 0;
+        if (bytes.length >= 384 && bytes[4] === 0x47 && bytes[196] === 0x47) {
+          pktSize = 192;
+          syncOffset = 4;
+        }
+        const totalPkts = Math.floor(bytes.length / pktSize);
+        let syncErrors = 0;
+        const pidMap = new Map();
+        let tsid = 1;
+        let onid = 65281;
+        let provider = '';
+        let service = '';
+        let sdtCount = 0;
+        const dec = new TextDecoder('utf-8', { fatal: false });
+
+        for (let i = 0; i < totalPkts; i++) {
+          const off = i * pktSize + syncOffset;
+          if (bytes[off] !== 0x47) {
+            syncErrors++;
+            continue;
+          }
+          const pusi = (bytes[off + 1] & 0x40) !== 0;
+          const pid = ((bytes[off + 1] & 0x1F) << 8) | bytes[off + 2];
+          const afc = (bytes[off + 3] >> 4) & 0x03;
+
+          if (!pidMap.has(pid)) pidMap.set(pid, { count: 0, hasPcr: false });
+          const entry = pidMap.get(pid);
+          entry.count++;
+
+          let payloadOff = off + 4;
+          if (afc === 2 || afc === 3) {
+            const afLen = bytes[off + 4];
+            if (afLen >= 7 && (bytes[off + 5] & 0x10)) entry.hasPcr = true;
+            payloadOff += 1 + afLen;
+          }
+
+          if (pusi && (afc === 1 || afc === 3) && payloadOff < off + 188) {
+            const ptr = bytes[payloadOff];
+            const secOff = payloadOff + 1 + ptr;
+            if (pid === 0x0000 && secOff + 8 <= off + 188 && bytes[secOff] === 0x00) {
+              tsid = (bytes[secOff + 3] << 8) | bytes[secOff + 4];
+            } else if (pid === 0x0011 && secOff + 16 <= off + 188 && bytes[secOff] === 0x42) {
+              sdtCount++;
+              tsid = (bytes[secOff + 3] << 8) | bytes[secOff + 4];
+              onid = (bytes[secOff + 8] << 8) | bytes[secOff + 9];
+              // Cari service_descriptor (tag 0x48)
+              for (let p = secOff + 11; p + 5 < off + 184; p++) {
+                if (bytes[p] === 0x48) {
+                  const provLen = bytes[p + 3];
+                  if (p + 5 + provLen <= off + 188) {
+                    provider = dec.decode(bytes.subarray(p + 4, p + 4 + provLen));
+                    const srvLen = bytes[p + 4 + provLen];
+                    if (p + 5 + provLen + srvLen <= off + 188) {
+                      service = dec.decode(bytes.subarray(p + 5 + provLen, p + 5 + provLen + srvLen));
+                    }
+                  }
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        const lines = [];
+        lines.push('====================================================================');
+        lines.push('MPEG-TS / TRANSPORT STREAM STRUCTURE & METADATA ANALYSIS REPORT');
+        lines.push('====================================================================');
+        lines.push(`File Name     : ${fileName}`);
+        lines.push(`File Size     : ${formatNumber(bytes.length)} bytes (${formatBytes(bytes.length)})`);
+        lines.push(`Packet Format : ${pktSize}-byte (sync offset=${syncOffset})`);
+        lines.push(`Total Packets : ${formatNumber(totalPkts)} (sync errors: ${syncErrors})`);
+        lines.push('');
+        lines.push('--- [1] PAT & TSID ---');
+        lines.push(`TSID=${tsid} | ONID=${onid}`);
+        lines.push('');
+        lines.push('--- [2] SDT METADATA (PID 0x0011) ---');
+        if (sdtCount > 0) {
+          lines.push(`Occurrences: ${sdtCount} paket | Provider="${provider}" | Service="${service}"`);
+        } else {
+          lines.push('(Tidak ada paket SDT / sudah dibersihkan)');
+        }
+        lines.push('');
+        lines.push('--- [3] ALL DETECTED PIDS ---');
+        const sortedPids = Array.from(pidMap.keys()).sort((a, b) => a - b);
+        for (const pid of sortedPids) {
+          const info = pidMap.get(pid);
+          let role = 'Elementary Stream';
+          if (pid === 0x0000) role = 'PAT';
+          else if (pid === 0x0011) role = 'SDT';
+          else if (pid === 0x1FFF) role = 'Null Padding';
+          else if (pid === 0x1000) role = 'PMT';
+          else if (pid === 0x0100) role = 'Video / Elementary Stream';
+          lines.push(`- 0x${pid.toString(16).toUpperCase().padStart(4, '0')} (${String(pid).padStart(4, ' ')}) | packets=${formatNumber(info.count)} | pcr=${info.hasPcr ? 'yes' : 'no'} | ${role}`);
+        }
+
+        // Trailing bytes hex dump
+        const alignedEnd = totalPkts * pktSize;
+        const trailingLen = bytes.length - alignedEnd;
+        lines.push('');
+        lines.push('--- [4] TRAILING BYTES (SISA DI UJUNG FILE) ---');
+        if (trailingLen <= 0) {
+          lines.push(`(0 bytes — Ukuran file pas kelipatan ${pktSize} byte)`);
+        } else {
+          lines.push(`Offset Mulai : ${toHex(alignedEnd)} (${formatNumber(alignedEnd)})`);
+          lines.push(`Panjang Sisa : ${trailingLen} bytes`);
+          const maxDump = Math.min(trailingLen, 512);
+          for (let r = 0; r < maxDump; r += 16) {
+            const hexCols = [];
+            let ascii = '';
+            for (let c = 0; c < 16; c++) {
+              if (r + c < maxDump) {
+                const b = bytes[alignedEnd + r + c];
+                hexCols.push(b.toString(16).toUpperCase().padStart(2, '0'));
+                ascii += (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.';
+              } else {
+                hexCols.push('  ');
+                ascii += ' ';
+              }
+            }
+            lines.push(`${toHex(alignedEnd + r)}  ${hexCols.slice(0, 8).join(' ')}  ${hexCols.slice(8).join(' ')}  |${ascii}|`);
+          }
+        }
+
+        return {
+          reportText: lines.join('\n'),
+          profileInfo: { kind: 'mpegts', tsid, onid, provider, service }
+        };
+      }
+
+      async function analyzeReferenceFile(file, preloadedBytes = null) {
+        refStatusMsg.classList.remove('hidden');
+        refStatusMsg.className = 'text-xs rounded-xl px-3 py-2 border border-violet-500/30 bg-violet-500/10 text-violet-200';
+        refStatusMsg.textContent = `Membaca & membongkar struktur ${file.name}...`;
+
+        try {
+          const bytes = preloadedBytes || await readFileBytesSafely(file);
+          const isMp4 = bytes.length >= 8 && ['ftyp', 'moov', 'mdat', 'free'].includes(readFourCC(bytes, 4));
+
+          if (isMp4) {
+            const topBoxes = readChildBoxes(bytes, 0, bytes.length);
+            const loadedMap = new Map();
+            for (const tb of topBoxes) {
+              if (tb.type !== 'mdat') loadedMap.set(tb.start, bytes.subarray(tb.start, tb.dataEnd));
+            }
+            const parsed = parseMp4AndBuildReport(file.name, bytes.length, topBoxes, loadedMap);
+            refProfile = parsed.profileInfo;
+
+            refFormat.textContent = refProfile.isSmartCutLayout ? 'MP4 (Smart-Cut)' : 'MP4 (ISO BMFF)';
+            refResFps.textContent = refProfile.width ? `${refProfile.width}×${refProfile.height}` : '-';
+            refCodecColor.textContent = `H.264 ${refProfile.avcProfile || ''} L${refProfile.avcLevel || '-'}`;
+            refMetaSummary.textContent = parsed.ilstTags.length > 0 ? `${parsed.ilstTags.length} tag (${parsed.ilstTags.map(t => t.tag).join(', ')})` : (refProfile.isEmptyIlst ? 'ilst kosong (8B)' : 'Tidak ada');
+            refStructureTree.textContent = parsed.reportText;
+
+            refMp4Options.classList.remove('hidden');
+            refMp4Options.classList.add('grid');
+            refTsOptions.classList.add('hidden');
+            refTsOptions.classList.remove('grid');
+          } else {
+            const parsedTs = analyzeMpegTsBuffer(bytes, file.name);
+            refProfile = parsedTs.profileInfo;
+
+            refFormat.textContent = 'MPEG-TS (188B)';
+            refResFps.textContent = `TSID=${refProfile.tsid} / ONID=${refProfile.onid}`;
+            refCodecColor.textContent = 'Transport Stream';
+            refMetaSummary.textContent = refProfile.provider ? `SDT: ${refProfile.provider}` : 'Tanpa SDT';
+            refStructureTree.textContent = parsedTs.reportText;
+
+            refMp4Options.classList.add('hidden');
+            refMp4Options.classList.remove('grid');
+            refTsOptions.classList.remove('hidden');
+            refTsOptions.classList.add('grid');
+          }
+
+          refPanel.classList.remove('hidden');
+          refStatusMsg.textContent = `Struktur "${file.name}" berhasil dibaca.`;
+        } catch (err) {
+          refStatusMsg.className = 'text-xs rounded-xl px-3 py-2 border border-rose-500/40 bg-rose-500/10 text-rose-300';
+          refStatusMsg.textContent = `Gagal membaca video referensi: ${err.message || err}`;
+        }
+      }
+
+      // =========================================================================
+      // 7. DETEKSI THREADING & MUAT CORE FFMPEG.WASM (WORKER + DIRECT FALLBACK)
+      // =========================================================================
+      function formatAnyError(err) {
+        if (!err) return 'Unknown error';
+        if (typeof err === 'string') return err;
+        if (err.message) return err.message;
+        if (err.error && err.error.message) return err.error.message;
+        if (err.type) return `Event(${err.type})`;
+        try { return JSON.stringify(err); } catch (_) { return String(err); }
+      }
+
+      function updateThreadUI() {
+        if (supportsMultiThread()) {
+          threadDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+          threadText.textContent = 'Multi-Thread Aktif';
+          threadBadge.className = 'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300';
+          coiNotice.classList.add('hidden');
+        } else {
+          threadDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+          threadText.textContent = 'Single-Thread';
+          threadBadge.className = 'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300';
+          coiNotice.classList.remove('hidden');
+        }
+      }
+
+      async function fetchBufferWithFallback(urls) {
+        let lastErr = null;
+        for (const url of urls) {
+          try {
+            const res = await fetch(url, { mode: 'cors' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const buf = await res.arrayBuffer();
+            if (!buf || buf.byteLength === 0) throw new Error('File kosong');
+            return buf;
+          } catch (e) {
+            lastErr = e;
+            appendLog(`[CDN] Gagal dari ${new URL(url).hostname}: ${formatAnyError(e)}, mencoba mirror berikutnya...`);
+          }
+        }
+        throw lastErr || new Error('Semua mirror CDN gagal dijangkau.');
+      }
+
+      async function toBlobURLWithFallback(urls, mimeType) {
+        const buf = await fetchBufferWithFallback(urls);
+        return URL.createObjectURL(new Blob([buf], { type: mimeType }));
+      }
+
+      function loadExternalScript(srcUrl) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = srcUrl;
+          s.crossOrigin = 'anonymous';
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error(`Gagal memuat script: ${srcUrl}`));
+          document.head.appendChild(s);
+        });
+      }
+
+      function createDirectCoreAdapter(coreInstance) {
+        let logCb = null;
+        let progCb = null;
+        coreInstance.setLogger(({ message }) => {
+          if (logCb) logCb({ message });
+        });
+        coreInstance.setProgress(({ progress }) => {
+          if (progCb) progCb({ progress });
+        });
+        return {
+          on(ev, fn) {
+            if (ev === 'log') logCb = fn;
+            else if (ev === 'progress') progCb = fn;
+          },
+          async writeFile(path, data) {
+            coreInstance.FS.writeFile(path, data);
+          },
+          async exec(args) {
+            await new Promise(r => setTimeout(r, 30));
+            const ret = coreInstance.exec(...args);
+            if (typeof ret === 'number' && ret !== 0) {
+              throw new Error(`FFmpeg keluar dengan kode ${ret}`);
+            }
+            return ret;
+          },
+          async readFile(path) {
+            return coreInstance.FS.readFile(path);
+          },
+          async deleteFile(path) {
+            try { coreInstance.FS.unlink(path); } catch (_) {}
+          },
+          terminate() {
+            try { if (typeof coreInstance.reset === 'function') coreInstance.reset(); } catch (_) {}
+          }
+        };
+      }
+
+      async function loadFFmpegCore() {
+        if (isCoreLoaded) return true;
+        if (isLoadingCore) return false;
+        isLoadingCore = true;
+        btnPreloadCore.disabled = true;
+        btnPreloadCore.textContent = 'Mengunduh Core...';
+        btnProcess.disabled = true;
+
+        try {
+          const isMT = supportsMultiThread();
+          const singleCoreRoots = [
+            'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd',
+            'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd',
+            'https://fastly.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd'
+          ];
+          const mtCoreRoots = [
+            'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.6/dist/umd',
+            'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/umd'
+          ];
+
+          setProgress(10, 'Mengunduh ffmpeg-core.js...');
+          appendLog(`[System] Mengunduh core FFmpeg.wasm (${isMT ? 'Multi-Thread' : 'Single-Thread'})...`);
+
+          const activeRoots = isMT ? mtCoreRoots : singleCoreRoots;
+          const coreJsBuf = await fetchBufferWithFallback(activeRoots.map(r => `${r}/ffmpeg-core.js`));
+          const coreURL = URL.createObjectURL(new Blob([coreJsBuf], { type: 'text/javascript' }));
+
+          setProgress(25, 'Mengunduh ffmpeg-core.wasm (~30 MB)...');
+          const wasmBuf = await fetchBufferWithFallback(activeRoots.map(r => `${r}/ffmpeg-core.wasm`));
+          const wasmURL = URL.createObjectURL(new Blob([wasmBuf], { type: 'application/wasm' }));
+
+          // Coba Mode 1: Web Worker (@ffmpeg/ffmpeg UMD)
+          let workerReady = false;
+          try {
+            setProgress(40, 'Menyiapkan Web Worker FFmpeg...');
+            if (!window.FFmpegWASM || !window.FFmpegWASM.FFmpeg) {
+              const umdUrl = await toBlobURLWithFallback([
+                'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js',
+                'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js'
+              ], 'text/javascript');
+              await loadExternalScript(umdUrl);
+            }
+
+            const classWorkerURL = await toBlobURLWithFallback([
+              'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js',
+              'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js'
+            ], 'text/javascript');
+
+            const workerFfmpeg = new window.FFmpegWASM.FFmpeg();
+            workerFfmpeg.on('log', ({ message }) => appendLog(message));
+            workerFfmpeg.on('progress', ({ progress }) => {
+              if (isProcessing && Number.isFinite(progress)) {
+                const pct = Math.min(95, Math.max(10, Math.round(progress * 90) + 5));
+                setProgress(pct, `Memproses video... (${pct}%)`);
+              }
+            });
+
+            const loadCfg = { classWorkerURL, coreURL, wasmURL };
+            if (isMT) {
+              loadCfg.workerURL = await toBlobURLWithFallback(
+                mtCoreRoots.map(r => `${r}/ffmpeg-core.worker.js`),
+                'text/javascript'
+              );
+            }
+
+            await workerFfmpeg.load(loadCfg);
+            ffmpeg = workerFfmpeg;
+            workerReady = true;
+            appendLog('[System] FFmpeg.wasm aktif dalam Mode Web Worker.');
+          } catch (workerErr) {
+            appendLog(`[System] Worker dibatasi sandbox (${formatAnyError(workerErr)}), beralih ke Mode Direct Core...`);
+          }
+
+          // Mode 2 (Fallback Otomatis): Direct Core tanpa Worker
+          if (!workerReady) {
+            setProgress(45, 'Menginisialisasi Direct Core di memori...');
+            if (typeof window.createFFmpegCore !== 'function') {
+              await loadExternalScript(coreURL);
+            }
+            if (typeof window.createFFmpegCore !== 'function') {
+              throw new Error('Factory createFFmpegCore tidak ditemukan pada ffmpeg-core.js.');
+            }
+            const rawCore = await window.createFFmpegCore({
+              mainScriptUrlOrBlob: coreURL,
+              wasmBinary: wasmBuf,
+              locateFile: (path) => (path.endsWith('.wasm') ? wasmURL : path)
+            });
+            ffmpeg = createDirectCoreAdapter(rawCore);
+            ffmpeg.on('log', ({ message }) => appendLog(message));
+            ffmpeg.on('progress', ({ progress }) => {
+              if (isProcessing && Number.isFinite(progress)) {
+                const pct = Math.min(95, Math.max(10, Math.round(progress * 90) + 5));
+                setProgress(pct, `Memproses video... (${pct}%)`);
+              }
+            });
+            appendLog('[System] FFmpeg.wasm aktif dalam Mode Direct Core.');
+          }
+
+          isCoreLoaded = true;
+          isLoadingCore = false;
+          btnPreloadCore.textContent = 'Core Siap ✓';
+          btnPreloadCore.classList.add('text-emerald-300', 'border-emerald-500/40');
+          setProgress(0, selectedFile ? 'Core siap! Klik "Proses Video Sekarang".' : 'Core siap! Pilih video sumber.');
+          if (selectedFile) btnProcess.disabled = false;
+          return true;
+        } catch (err) {
+          isLoadingCore = false;
+          btnPreloadCore.disabled = false;
+          btnPreloadCore.textContent = 'Coba Muat Ulang Core';
+          setProgress(0, 'Gagal memuat core FFmpeg.');
+          appendLog(`[Error] Gagal memuat core: ${formatAnyError(err)}`);
+          if (selectedFile) btnProcess.disabled = false;
+          return false;
+        }
+      }
+
+      // =========================================================================
+      // 8. PEMBANGUN ARGUMEN FFMPEG & SINKRONISASI UI
+      // =========================================================================
+      function getOutputExtension() {
+        if (optContainer.value === 'mp4') return 'mp4';
+        return optTsExt.value === 'mp4' ? 'mp4' : 'ts';
+      }
+
+      function buildFFmpegArgs(inputName, outputName) {
+        const container = optContainer.value;
+        const audioOpt = optAudio.value;
+        const args = ['-i', inputName];
+
+        if (mode === 'remux') {
+          args.push('-c:v', 'copy');
+        } else {
+          args.push('-c:v', 'libx264', '-preset', optPreset.value, '-pix_fmt', 'yuv420p');
+
+          if (optProfile.value !== 'auto') args.push('-profile:v', optProfile.value);
+          if (optLevel.value !== 'auto') args.push('-level:v', optLevel.value);
+
+          if (optBframes.value === '0') args.push('-bf', '0');
+          else if (optBframes.value === '2') args.push('-bf', '2');
+
+          if (optColorRange.value === 'bt709_tv' || optColorRange.value === 'bt709_tv_nopasp') {
+            args.push('-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv');
+          }
+
+          if (optRateMode.value === 'crf') {
+            args.push('-crf', String(optCrf.value));
+          } else {
+            const br = Math.max(200, parseInt(optBitrate.value, 10) || 10000);
+            args.push('-b:v', `${br}k`, '-maxrate', `${br * 2}k`, '-bufsize', `${br * 4}k`);
+          }
+
+          const vfList = [];
+          if (optResolution.value !== 'original') {
+            let targetW = 1080, targetH = 1920;
+            if (optResolution.value === 'custom') {
+              targetW = Math.max(128, Math.floor((parseInt(customW.value, 10) || 1080) / 2) * 2);
+              targetH = Math.max(128, Math.floor((parseInt(customH.value, 10) || 1920) / 2) * 2);
+            } else {
+              const parts = optResolution.value.split('x');
+              targetW = parseInt(parts[0], 10);
+              targetH = parseInt(parts[1], 10);
+            }
+            vfList.push(`scale=${targetW}:${targetH}:flags=lanczos`);
+          }
+          if (optColorRange.value === 'bt709_tv') {
+            vfList.push('setsar=1:1');
+          }
+          if (vfList.length > 0) args.push('-vf', vfList.join(','));
+
+          if (optFps.value !== 'original') {
+            args.push('-r', optFps.value);
+          }
+
+          if (container === 'mp4' && optMp4Layout.value === 'smartcut') {
+            args.push('-video_track_timescale', '90000');
+          }
+        }
+
+        if (audioOpt === 'strip') args.push('-an');
+        else if (audioOpt === 'aac_128') args.push('-c:a', 'aac', '-b:a', '128k', '-ar', '44100');
+        else args.push('-c:a', 'copy');
+
+        args.push('-map_metadata', '-1', '-map_chapters', '-1');
+
+        if (container === 'mpegts') {
+          args.push('-f', 'mpegts');
+          if (chkApplyRef.checked && refProfile && refProfile.kind === 'mpegts') {
+            if (chkRefTsIds.checked) {
+              args.push('-mpegts_transport_stream_id', String(refProfile.tsid));
+              args.push('-mpegts_original_network_id', String(refProfile.onid));
+            }
+            if (chkRefTsSdt.checked && refProfile.provider) {
+              args.push('-metadata', `service_provider=${refProfile.provider}`);
+              args.push('-metadata', `service_name=${refProfile.service || 'Service01'}`);
+            }
+          } else if (optSdtMode.value === 'custom') {
+            if (sdtProvider.value.trim()) args.push('-metadata', `service_provider=${sdtProvider.value.trim()}`);
+            if (sdtService.value.trim()) args.push('-metadata', `service_name=${sdtService.value.trim()}`);
+          }
+        } else {
+          args.push('-f', 'mp4');
+          if (optMp4Layout.value !== 'smartcut') {
+            args.push('-movflags', '+faststart');
+          }
+        }
+
+        args.push('-y', outputName);
+        return args;
+      }
+
+      function updateCommandPreview() {
+        const inExt = selectedFile ? (selectedFile.name.split('.').pop() || 'mp4') : 'mp4';
+        const outExt = getOutputExtension();
+        const args = buildFFmpegArgs(`input.${inExt}`, `output.${outExt}`);
+        cmdPreview.textContent = `ffmpeg ${args.join(' ')}`;
+      }
+
+      function switchMode(newMode) {
+        mode = newMode;
+        if (mode === 'remux') {
+          btnModeRemux.className = 'py-2 px-3 rounded-lg text-xs font-semibold transition cursor-pointer bg-indigo-600 text-white shadow';
+          btnModeTranscode.className = 'py-2 px-3 rounded-lg text-xs font-semibold transition cursor-pointer text-slate-400 hover:text-white';
+          transcodeOptions.classList.add('hidden');
+          advancedCodecGrid.classList.add('opacity-50', 'pointer-events-none');
+          modeDesc.textContent = 'Remux Cepat (-c:v copy): selesai dalam ~1 detik tanpa merender ulang piksel.';
+        } else {
+          btnModeTranscode.className = 'py-2 px-3 rounded-lg text-xs font-semibold transition cursor-pointer bg-indigo-600 text-white shadow';
+          btnModeRemux.className = 'py-2 px-3 rounded-lg text-xs font-semibold transition cursor-pointer text-slate-400 hover:text-white';
+          transcodeOptions.classList.remove('hidden');
+          advancedCodecGrid.classList.remove('opacity-50', 'pointer-events-none');
+          modeDesc.textContent = 'Full Transcode (libx264): merender ulang piksel sehingga profil, level, warna BT.709, dan B-frames terbentuk baru.';
+        }
+        updateForgePreview();
+        updateCommandPreview();
+      }
+
+      function updateContainerUI() {
+        if (optContainer.value === 'mpegts') {
+          tsMetaBox.classList.remove('hidden');
+          mp4MetaBox.classList.add('hidden');
+        } else {
+          tsMetaBox.classList.add('hidden');
+          mp4MetaBox.classList.remove('hidden');
+          if (optMp4MetaMode.value === 'forge') {
+            mp4ForgeFields.classList.remove('hidden');
+            updateForgePreview();
+          } else {
+            mp4ForgeFields.classList.add('hidden');
+          }
+        }
+        updateCommandPreview();
+      }
+
+      // =========================================================================
+      // 9. EVENT LISTENERS
+      // =========================================================================
+      btnPresetMp4Social.addEventListener('click', applyPresetMp4Social);
+      btnPresetTs.addEventListener('click', applyPresetTs);
+      btnPresetSmartCut.addEventListener('click', applyPresetSmartCut);
+
+      btnModeRemux.addEventListener('click', () => { setPresetCardState('custom'); switchMode('remux'); });
+      btnModeTranscode.addEventListener('click', () => { setPresetCardState('custom'); switchMode('transcode'); });
+      optContainer.addEventListener('change', () => { setPresetCardState('custom'); updateContainerUI(); });
+
+      optRateMode.addEventListener('change', () => {
+        if (optRateMode.value === 'crf') {
+          crfControl.classList.remove('hidden');
+          bitrateControl.classList.add('hidden');
+        } else {
+          crfControl.classList.add('hidden');
+          bitrateControl.classList.remove('hidden');
+        }
+        updateCommandPreview();
+      });
+
+      optCrf.addEventListener('input', () => {
+        crfValueLabel.textContent = optCrf.value;
+        updateCommandPreview();
+      });
+
+      optResolution.addEventListener('change', () => {
+        if (optResolution.value === 'custom') customResRow.classList.remove('hidden');
+        else customResRow.classList.add('hidden');
+        updateForgePreview();
+        updateCommandPreview();
+      });
+
+      optMp4MetaMode.addEventListener('change', updateContainerUI);
+      btnRegenHash.addEventListener('click', () => {
+        forgeCprt.value = generateRandomHex32();
+        updateForgePreview();
+      });
+
+      [forgeArt, forgeCprt, forgeAid, forgeBitrateVal].forEach(el => {
+        el.addEventListener('input', updateForgePreview);
+      });
+
+      optSdtMode.addEventListener('change', () => {
+        if (optSdtMode.value === 'custom') {
+          sdtProviderField.classList.remove('hidden');
+          sdtServiceField.classList.remove('hidden');
+        } else {
+          sdtProviderField.classList.add('hidden');
+          sdtServiceField.classList.add('hidden');
+        }
+        updateCommandPreview();
+      });
+
+      [optBitrate, optPreset, customW, customH, optFps, optAudio, optProfile, optLevel, optColorRange, optBframes, optMp4Layout, optTsExt, sdtProvider, sdtService].forEach(el => {
+        el.addEventListener('input', () => { updateForgePreview(); updateCommandPreview(); });
+        el.addEventListener('change', () => { updateForgePreview(); updateCommandPreview(); });
+      });
+
+      [chkApplyRef, chkRefFtyp, chkRefColr, chkRefHdlr, chkRefTime, chkRefUdta, chkRefTsSdt, chkRefTsIds, chkMp4FreeBox, chkMp4ZeroTime, chkMp4StripBtrt].forEach(el => {
+        el.addEventListener('change', updateCommandPreview);
+      });
+
+      btnPreloadCore.addEventListener('click', () => loadFFmpegCore());
+      btnClearLog.addEventListener('click', () => { logConsole.textContent = '[Log dibersihkan]'; });
+
+      // --- Pilih File Video Sumber (Single-Read Aman Galeri) ---
+      async function handleFileSelected(file) {
+        if (!file) return;
+        sourceErrorMsg.classList.add('hidden');
+        try {
+          selectedFile = file;
+          selectedFileBytes = null;
+          resultCard.classList.add('hidden');
+          sourceInfo.classList.remove('hidden');
+          btnUseSourceAsRef.classList.remove('hidden');
+
+          srcName.textContent = file.name;
+          srcSize.textContent = formatBytes(file.size) + ' (Memuat...)';
+          srcRes.textContent = 'Membaca...';
+          srcDur.textContent = 'Membaca...';
+          btnProcess.disabled = true;
+
+          selectedFileBytes = await readFileBytesSafely(file);
+          srcSize.textContent = formatBytes(selectedFileBytes.length);
+
+          if (lastSourcePreviewUrl) URL.revokeObjectURL(lastSourcePreviewUrl);
+          const safeBlob = new Blob([selectedFileBytes], { type: file.type || 'video/mp4' });
+          lastSourcePreviewUrl = URL.createObjectURL(safeBlob);
+          sourcePreview.src = lastSourcePreviewUrl;
+
+          sourcePreview.onloadedmetadata = () => {
+            const vw = sourcePreview.videoWidth;
+            const vh = sourcePreview.videoHeight;
+            const dur = sourcePreview.duration;
+            if (vw && vh) {
+              sourceMeta.width = vw;
+              sourceMeta.height = vh;
+            }
+            if (Number.isFinite(dur) && dur > 0) {
+              sourceMeta.durationMs = Math.round(dur * 1000);
+            }
+            srcRes.textContent = vw ? `${vw} × ${vh} px` : 'Tidak terbaca';
+            srcDur.textContent = Number.isFinite(dur) ? `${dur.toFixed(2)} detik` : '-';
+            updateForgePreview();
+          };
+
+          sourcePreview.onerror = () => {
+            srcRes.textContent = 'Preview browser tidak didukung (tetap bisa diproses FFmpeg)';
+            srcDur.textContent = '-';
+          };
+
+          btnProcess.disabled = isLoadingCore || isProcessing;
+          updateCommandPreview();
+        } catch (err) {
+          selectedFile = null;
+          selectedFileBytes = null;
+          sourceErrorMsg.textContent = 'Gagal memperoleh video: ' + (err.message || err);
+          sourceErrorMsg.classList.remove('hidden');
+        }
+      }
+
+      fileInput.addEventListener('click', function () { this.value = ''; });
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) handleFileSelected(file);
+      });
+
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('border-indigo-500', 'bg-slate-900');
+      });
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('border-indigo-500', 'bg-slate-900');
+      });
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('border-indigo-500', 'bg-slate-900');
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) handleFileSelected(file);
+      });
+
+      // --- Pilih File Referensi (Card 1B) ---
+      refFileInput.addEventListener('click', function () { this.value = ''; });
+      refFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) analyzeReferenceFile(file);
+      });
+      refDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        refDropzone.classList.add('border-violet-400', 'bg-slate-900');
+      });
+      refDropzone.addEventListener('dragleave', () => {
+        refDropzone.classList.remove('border-violet-400', 'bg-slate-900');
+      });
+      refDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        refDropzone.classList.remove('border-violet-400', 'bg-slate-900');
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) analyzeReferenceFile(file);
+      });
+
+      btnUseSourceAsRef.addEventListener('click', () => {
+        if (selectedFile) analyzeReferenceFile(selectedFile, selectedFileBytes);
+      });
+
+      btnSyncRefParams.addEventListener('click', () => {
+        if (!refProfile) return;
+        setPresetCardState('custom');
+        chkApplyRef.checked = true;
+        if (refProfile.kind === 'mp4') {
+          optContainer.value = 'mp4';
+          switchMode('transcode');
+          if (refProfile.width && refProfile.height) {
+            optResolution.value = 'custom';
+            customResRow.classList.remove('hidden');
+            customW.value = refProfile.width;
+            customH.value = refProfile.height;
+          }
+          if (refProfile.fps && ['24', '30', '60'].includes(String(refProfile.fps))) {
+            optFps.value = String(refProfile.fps);
+          }
+          if (refProfile.avcProfile && ['high', 'main', 'baseline'].includes(refProfile.avcProfile)) {
+            optProfile.value = refProfile.avcProfile;
+          }
+          if (refProfile.avcLevel && ['5.2', '5.1', '4.2', '4.1'].includes(refProfile.avcLevel)) {
+            optLevel.value = refProfile.avcLevel;
+          }
+          if (refProfile.isBt709Tv) {
+            optColorRange.value = refProfile.hasPasp ? 'bt709_tv' : 'bt709_tv_nopasp';
+          }
+          optMp4Layout.value = refProfile.isSmartCutLayout ? 'smartcut' : 'faststart';
+          chkMp4FreeBox.checked = refProfile.hasFree8BeforeMdat && !refProfile.isSmartCutLayout;
+          chkMp4ZeroTime.checked = refProfile.isZeroTime;
+          chkMp4StripBtrt.checked = !refProfile.hasBtrt;
+          if (refProfile.isEmptyIlst) {
+            optMp4MetaMode.value = 'empty_ilst';
+          } else if (refProfile.udtaBytes) {
+            optMp4MetaMode.value = 'ref';
+          } else {
+            optMp4MetaMode.value = 'none';
+          }
+          updateContainerUI();
+          refStatusMsg.textContent = 'Parameter & profil atom referensi berhasil disinkronkan ke output!';
+          refStatusMsg.className = 'text-xs rounded-xl px-3 py-2 border border-violet-500/40 bg-violet-500/10 text-violet-200';
+          refStatusMsg.classList.remove('hidden');
+        } else {
+          optContainer.value = 'mpegts';
+          optSdtMode.value = refProfile.provider ? 'custom' : 'strip';
+          if (refProfile.provider) {
+            sdtProvider.value = refProfile.provider;
+            sdtService.value = refProfile.service || 'Service01';
+            sdtProviderField.classList.remove('hidden');
+            sdtServiceField.classList.remove('hidden');
+          }
+          updateContainerUI();
+          refStatusMsg.textContent = 'Parameter MPEG-TS referensi berhasil disinkronkan!';
+          refStatusMsg.className = 'text-xs rounded-xl px-3 py-2 border border-violet-500/40 bg-violet-500/10 text-violet-200';
+          refStatusMsg.classList.remove('hidden');
+        }
+      });
+
+      btnCopyRefTree.addEventListener('click', () => copyTextToClipboard(refStructureTree.textContent, btnCopyRefTree));
+      btnDownloadRefTree.addEventListener('click', () => downloadTextFile(refStructureTree.textContent, 'referensi_struktur_atom.txt'));
+      btnCopyOutTree.addEventListener('click', () => copyTextToClipboard(outStructureTree.textContent, btnCopyOutTree));
+      btnDownloadOutTree.addEventListener('click', () => downloadTextFile(outStructureTree.textContent, 'output_struktur_atom.txt'));
+
+      // --- Eksekusi FFmpeg & Post-Processing ---
+      btnProcess.addEventListener('click', async () => {
+        if (!selectedFile || isProcessing) return;
+
+        if (!isCoreLoaded) {
+          const ok = await loadFFmpegCore();
+          if (!ok) return;
+        }
+
+        isProcessing = true;
+        btnProcess.disabled = true;
+        btnCancel.classList.remove('hidden');
+        resultCard.classList.add('hidden');
+        logConsole.textContent = '';
+
+        const inExt = (selectedFile.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp4';
+        const outExt = getOutputExtension();
+        const vfsInput = `in_${Date.now()}.${inExt}`;
+        const vfsOutput = `out_${Date.now()}.${outExt}`;
+
+        try {
+          setProgress(5, 'Menyalin file ke memori virtual FFmpeg...');
+          appendLog(`[Write] Menulis ${selectedFile.name} (${formatBytes(selectedFile.size)}) ke VFS...`);
+          const inputBytes = selectedFileBytes || await readFileBytesSafely(selectedFile);
+          await ffmpeg.writeFile(vfsInput, inputBytes);
+
+          const args = buildFFmpegArgs(vfsInput, vfsOutput);
+          appendLog(`[Exec] ffmpeg ${args.join(' ')}`);
+          setProgress(12, mode === 'remux' ? 'Melakukan remux cepat...' : 'Melakukan encoding video...');
+
+          await ffmpeg.exec(args);
+
+          setProgress(95, 'Membaca hasil & menyusun atom akhir...');
+          let outData = await ffmpeg.readFile(vfsOutput);
+
+          try { await ffmpeg.deleteFile(vfsInput); } catch (_) {}
+          try { await ffmpeg.deleteFile(vfsOutput); } catch (_) {}
+
+          const baseName = selectedFile.name.replace(/\.[^/.]+$/, '');
+          let finalFileName = '';
+          let mimeType = '';
+          let outReport = '';
+
+          if (optContainer.value === 'mp4') {
+            appendLog('[Atom] Menyusun & membersihkan struktur atom MP4 (ftyp/moov/btrt/free/udta)...');
+            outData = postProcessMp4Output(outData);
+            finalFileName = `${baseName}_mp4atom.mp4`;
+            mimeType = 'video/mp4';
+
+            const topBoxes = readChildBoxes(outData, 0, outData.length);
+            const loadedMap = new Map();
+            for (const tb of topBoxes) {
+              if (tb.type !== 'mdat') loadedMap.set(tb.start, outData.subarray(tb.start, tb.start + tb.size));
+            }
+            const parsedOut = parseMp4AndBuildReport(finalFileName, outData.length, topBoxes, loadedMap);
+            outReport = parsedOut.reportText;
+            tsPreviewHint.classList.add('hidden');
+          } else {
+            if (optSdtMode.value === 'strip' && !(chkApplyRef.checked && refProfile && refProfile.kind === 'mpegts' && chkRefTsSdt.checked)) {
+              const pktSize = 188;
+              const totalPkts = Math.floor(outData.length / pktSize);
+              for (let i = 0; i < totalPkts; i++) {
+                const off = i * pktSize;
+                if (outData[off] === 0x47) {
+                  const pid = ((outData[off + 1] & 0x1F) << 8) | outData[off + 2];
+                  if (pid === 0x0011) {
+                    outData[off + 1] = 0x1F;
+                    outData[off + 2] = 0xFF;
+                  }
+                }
+              }
+            }
+            finalFileName = `${baseName}_stream.${outExt}`;
+            mimeType = outExt === 'mp4' ? 'video/mp4' : 'video/mp2t';
+            const parsedTs = analyzeMpegTsBuffer(outData, finalFileName);
+            outReport = parsedTs.reportText;
+            tsPreviewHint.classList.remove('hidden');
+          }
+
+          if (lastOutputUrl) URL.revokeObjectURL(lastOutputUrl);
+          const blob = new Blob([outData.buffer], { type: mimeType });
+          lastOutputUrl = URL.createObjectURL(blob);
+
+          outputPreview.src = lastOutputUrl;
+          btnDownload.href = lastOutputUrl;
+          btnDownload.download = finalFileName;
+          outMeta.textContent = `${finalFileName} • ${formatBytes(blob.size)}`;
+          outStructureTree.textContent = outReport;
+
+          resultCard.classList.remove('hidden');
+          setProgress(100, 'Selesai! Struktur atom telah diverifikasi.');
+          appendLog(`[Done] Output siap: ${finalFileName} (${formatBytes(blob.size)}).`);
+          resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (err) {
+          setProgress(0, 'Terjadi kesalahan saat memproses video.');
+          appendLog(`[Error] ${err.message || err}`);
+        } finally {
+          isProcessing = false;
+          btnProcess.disabled = false;
+          btnCancel.classList.add('hidden');
+        }
+      });
+
+      btnCancel.addEventListener('click', () => {
+        if (ffmpeg) {
+          try { ffmpeg.terminate(); } catch (_) {}
+          ffmpeg = null;
+          isCoreLoaded = false;
+          isProcessing = false;
+          btnPreloadCore.disabled = false;
+          btnPreloadCore.textContent = 'Muat Core FFmpeg';
+          btnPreloadCore.classList.remove('text-emerald-300', 'border-emerald-500/40');
+          btnCancel.classList.add('hidden');
+          btnProcess.disabled = !selectedFile;
+          setProgress(0, 'Proses dibatalkan.');
+          appendLog('[Abort] Engine FFmpeg dihentikan.');
+        }
+      });
+
+      // Inisialisasi Awal
+      updateThreadUI();
+      applyPresetMp4Social();
+    } catch (bootErr) {
+      console.error('Boot error:', bootErr);
+    }
+  </script>
+</body>
+</html>
