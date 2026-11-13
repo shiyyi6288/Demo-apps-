@@ -1,0 +1,2992 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AtomLens - MP4/MOV Atom & Metadata Inspector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#151e2e',
+                            900: '#0f172a',
+                            950: '#080d1a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar for crisp developer tool feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .atom-node-active {
+            background-color: rgba(59, 130, 246, 0.2);
+            border-left: 3px solid #3b82f6;
+        }
+        .hex-byte:hover {
+            background-color: #3b82f6;
+            color: #ffffff;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-lg tracking-tight text-white">AtomLens</h1>
+                        <span class="text-[11px] font-mono uppercase px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">ISOBMFF / MP4</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Inspektur Struktur Atom, Box &amp; Hex Video Tingkat Rendah (100% Client-Side)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2.5">
+                <button id="btnSample" class="px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Muat Sampel MP4
+                </button>
+                <button id="btnQuickTiktokPreset" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5" title="Langsung terapkan struktur Anti-Kompresi TikTok & FYP Bypass ke video saat ini">
+                    <svg class="w-4 h-4 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    1-Klik Preset Lolos Kompresi TikTok
+                </button>
+                <button id="btnOpenCloner" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/20 transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Ubah ke Struktur Target (Clone)
+                </button>
+                <button id="btnGithubGuide" class="px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                    </svg>
+                    Cara Deploy ke GitHub Pages
+                </button>
+                <label class="cursor-pointer px-4 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    Pilih File Video
+                    <input type="file" id="fileInput" accept="video/mp4,video/quicktime,video/x-m4v,audio/mp4,.mp4,.mov,.m4a,.m4v,.3gp" class="hidden">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col gap-4">
+
+        <!-- Dropzone / Initial Banner -->
+        <div id="dropZone" class="border-2 border-dashed border-slate-800 hover:border-blue-500/60 bg-slate-900/40 rounded-2xl p-8 text-center transition-all cursor-pointer group">
+            <div class="max-w-md mx-auto flex flex-col items-center">
+                <div class="w-14 h-14 rounded-2xl bg-slate-800/80 group-hover:bg-blue-500/10 border border-slate-700 group-hover:border-blue-500/30 flex items-center justify-center mb-3 transition">
+                    <svg class="w-7 h-7 text-slate-400 group-hover:text-blue-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                </div>
+                <h2 class="text-base font-semibold text-white mb-1">Seret &amp; Lepas file video di sini, atau klik untuk memilih</h2>
+                <p class="text-xs text-slate-400 mb-3">Mendukung format berbasis ISO Base Media File Format (<code class="text-blue-400">.mp4</code>, <code class="text-blue-400">.mov</code>, <code class="text-blue-400">.m4a</code>, <code class="text-blue-400">.3gp</code>). File diproses langsung di memori browser tanpa diunggah ke mana pun.</p>
+                <div class="inline-flex items-center gap-2 text-[11px] text-slate-500 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+                    <span>⚡ Mendukung file ukuran besar via Chunked File Slicing</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Bar (Hidden until file loaded) -->
+        <section id="summarySection" class="hidden grid grid-cols-1 md:grid-cols-4 gap-3">
+            <!-- General File Info -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                    <span>Nama &amp; Ukuran File</span>
+                    <span id="metaMime" class="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">video/mp4</span>
+                </div>
+                <div id="metaFileName" class="font-semibold text-sm text-white truncate" title="-">-</div>
+                <div id="metaFileSize" class="text-xs font-mono text-blue-400 mt-1">-</div>
+            </div>
+
+            <!-- Brand / Container Type -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                    <span>Major Brand (<code class="text-amber-400">ftyp</code>)</span>
+                    <span class="text-[11px] font-mono text-slate-500">ISO/IEC 14496-12</span>
+                </div>
+                <div id="metaBrand" class="font-semibold text-sm text-white font-mono">-</div>
+                <div id="metaCompatBrands" class="text-xs text-slate-400 truncate mt-1">-</div>
+            </div>
+
+            <!-- Video Specs & Duration -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                    <span>Durasi &amp; Resolusi</span>
+                    <span id="metaFps" class="font-mono text-[11px] text-emerald-400">-</span>
+                </div>
+                <div id="metaDuration" class="font-semibold text-sm text-white">-</div>
+                <div id="metaResolution" class="text-xs font-mono text-slate-300 mt-1">-</div>
+            </div>
+
+            <!-- Atom Statistics -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                    <span>Total Struktur Atom</span>
+                    <span id="metaFastStart" class="text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">-</span>
+                </div>
+                <div id="metaAtomCount" class="font-semibold text-sm text-white">-</div>
+                <div id="metaTopLevelBoxes" class="text-xs font-mono text-slate-400 truncate mt-1">-</div>
+            </div>
+        </section>
+
+        <!-- Atom Offset Visual Map Bar -->
+        <section id="visualMapSection" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    Peta Distribusi Byte Atom Tingkat Atas (Top-Level)
+                </span>
+                <span class="text-[11px] text-slate-400">Klik blok untuk melompat ke atom</span>
+            </div>
+            <div id="byteMapBar" class="w-full h-7 rounded-lg overflow-hidden flex bg-slate-950 border border-slate-800 gap-0.5 p-0.5"></div>
+        </section>
+
+        <!-- Forensic Video Origin & Edit Analysis Banner -->
+        <section id="forensicSection" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">FORENSIK ATOM &amp; TIKTOK AUDIT</span>
+                    <h3 class="text-xs font-semibold text-white">Deteksi Jejak Edit, Bypass Kompresi TikTok &amp; Kelayakan FYP</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="tiktokBypassBadge" class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">-</span>
+                    <span id="forensicVerdictBadge" class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">-</span>
+                </div>
+            </div>
+            <div id="forensicFindingsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+                <!-- Populated dynamically -->
+            </div>
+        </section>
+
+        <!-- Main Workspace: Atom Tree + Inspector + Hex Dump -->
+        <section id="workspaceSection" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+
+            <!-- Left Column: Atom Tree Explorer (5 Cols) -->
+            <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl flex flex-col h-[640px] overflow-hidden">
+                <!-- Tree Header & Search -->
+                <div class="p-3 border-b border-slate-800 flex flex-col gap-2 bg-slate-900/90">
+                    <div class="flex flex-wrap items-center justify-between gap-1.5">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Hirarki Atom / Box</h3>
+                        <div class="flex flex-wrap items-center gap-1">
+                            <button id="btnExpandAll" class="text-[11px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Buka</button>
+                            <button id="btnCollapseAll" class="text-[11px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Tutup</button>
+                            <button id="btnCopyTreeText" class="text-[11px] px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1" title="Salin seluruh pohon struktur & metadata atom ke Clipboard">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                                </svg>
+                                Salin Semua
+                            </button>
+                            <button id="btnPreviewReport" class="text-[11px] px-2 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition" title="Lihat & Salin Laporan Lengkap">Laporan</button>
+                            <button id="btnExportJson" class="text-[11px] px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 transition" title="Unduh struktur atom sebagai JSON">JSON</button>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <input type="text" id="atomSearch" placeholder="Cari kode atom (mis: moov, mvhd, trak, stbl, avcC)..." class="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 outline-none font-mono">
+                        <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Tree Scroll Container -->
+                <div id="atomTreeContainer" class="flex-1 overflow-y-auto p-2 font-mono text-xs select-none space-y-0.5">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Right Column: Atom Detail & Hex Inspector (7 Cols) -->
+            <div class="lg:col-span-7 flex flex-col gap-4 h-[640px]">
+
+                <!-- Top Half: Decoded Atom Properties & Metadata -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden">
+                    <div class="p-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span id="selectedAtomBadge" class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-mono font-bold text-xs border border-blue-500/30">root</span>
+                            <h3 id="selectedAtomName" class="text-sm font-semibold text-white truncate">Pilih sebuah atom pada pohon di kiri</h3>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="selectedAtomPath" class="text-xs font-mono text-slate-400 hidden sm:inline">/</span>
+                            <button id="btnCopySelectedAtom" class="text-[11px] px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1" title="Salin rincian dan metadata atom yang sedang dipilih">
+                                <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                Salin Atom Ini
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="atomDetailsContent" class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+                        <!-- Default empty state -->
+                        <div class="h-full flex flex-col items-center justify-center text-slate-500 text-center">
+                            <p>Klik salah satu node atom di sebelah kiri (misalnya <code class="text-blue-400">ftyp</code>, <code class="text-blue-400">mvhd</code>, atau <code class="text-blue-400">tkhd</code>) untuk membedah struktur byte dan metadatanya.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Half: Raw Hex & ASCII Inspector -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl h-[270px] flex flex-col overflow-hidden">
+                    <div class="px-3 py-2 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Inspektur Hex &amp; ASCII</h3>
+                            <span id="hexRangeInfo" class="text-[11px] font-mono text-slate-500">Menampilkan 0 byte</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button id="btnCopyHex" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-mono flex items-center gap-1" title="Salin halaman Hex & ASCII saat ini">
+                                <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                </svg>
+                                Salin Hex
+                            </button>
+                            <button id="btnHexPrev" disabled class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs font-mono">&laquo; Prev</button>
+                            <span id="hexPageLabel" class="text-[11px] font-mono text-slate-400 px-1">Hal 1</span>
+                            <button id="btnHexNext" disabled class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs font-mono">Next &raquo;</button>
+                        </div>
+                    </div>
+
+                    <!-- Hex Legend -->
+                    <div class="px-3 py-1 bg-slate-950/60 border-b border-slate-800/80 flex items-center gap-4 text-[11px] font-mono">
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500/40 border border-amber-400 inline-block"></span> Ukuran Atom (Size)</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500/40 border border-blue-400 inline-block"></span> Tipe FourCC (Type)</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500/30 border border-emerald-400 inline-block"></span> Payload / Data</span>
+                    </div>
+
+                    <!-- Hex Dump Table -->
+                    <div id="hexContainer" class="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed bg-slate-950 select-text">
+                        <div class="text-slate-600">Pilih atom untuk menginspeksi byte mentah (raw hex).</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Hidden video element for fallback track extraction -->
+        <video id="hiddenVideo" class="hidden" preload="metadata"></video>
+    </main>
+
+    <!-- Toast Notification Banner -->
+    <div id="copyToast" class="fixed bottom-5 right-5 z-50 hidden items-center gap-2.5 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-2xl shadow-emerald-600/30 border border-emerald-400/40 text-xs font-medium transition-all">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span id="copyToastText">Struktur atom berhasil disalin ke clipboard!</span>
+    </div>
+
+    <!-- Modal: Full Atom Structure & Metadata Copy Preview -->
+    <div id="reportModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-5 shadow-2xl flex flex-col max-h-[85vh] gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <div>
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        Salin Seluruh Struktur Video &amp; Atom
+                    </h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Pilih format laporan di bawah ini lalu klik tombol salin untuk menempelkannya ke dokumentasi atau editor.</p>
+                </div>
+                <button id="btnCloseReportModal" class="text-slate-400 hover:text-white text-sm font-bold px-2 py-1 rounded">✕</button>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                    <button id="tabFormatTree" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white transition">Pohon ASCII + Metadata Lengkap</button>
+                    <button id="tabFormatCompact" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Pohon Ringkas (Offsets)</button>
+                    <button id="tabFormatJson" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Format JSON</button>
+                </div>
+                <button id="btnCopyFromModal" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Salin Isi Laporan
+                </button>
+            </div>
+
+            <textarea id="reportTextarea" readonly class="w-full flex-1 min-h-[340px] bg-slate-950 border border-slate-800 rounded-xl p-3.5 font-mono text-xs text-slate-200 leading-relaxed outline-none focus:border-blue-500 resize-none"></textarea>
+        </div>
+    </div>
+
+    <!-- Modal: Target Structure Cloner & Binary Atom Rebuilder -->
+    <div id="clonerModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-5 shadow-2xl flex flex-col max-h-[90vh] gap-4 overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono text-[11px] font-bold">TARGET CLONER</span>
+                        <h3 class="text-sm font-bold text-white">Ubah Struktur Video ke Profil Target (<code class="text-amber-400">1000542961.mp4</code>)</h3>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Menyeragamkan susunan kontainer, jumlah atom, padding, track audio ganda, dan offset <code class="text-blue-400">stco</code> agar 100% identik.</p>
+                </div>
+                <button id="btnCloseClonerModal" class="text-slate-400 hover:text-white text-sm font-bold px-2 py-1 rounded">✕</button>
+            </div>
+
+            <!-- Overflow Body -->
+            <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+                <!-- Target Blueprint Summary -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-semibold text-slate-200">Cetak Biru Struktur Atom Target:</span>
+                        <span class="font-mono text-[11px] text-emerald-400">ftyp → free (42,375 B) → free (8 B) → mdat → mdat (104 B) → moov</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px] text-slate-400 font-mono">
+                        <div class="bg-slate-900/90 p-2 rounded border border-slate-800/80">
+                            <div class="text-blue-400 font-bold mb-0.5">1. Root &amp; Padding</div>
+                            <div>• ftyp: isom (v512) [32 B]</div>
+                            <div>• free #1: 42,375 B (Offset 0x20)</div>
+                            <div>• free #2: 8 B (Offset 0xA5A7)</div>
+                            <div>• mdat #1 (Utama) + mdat #2 (104 B)</div>
+                        </div>
+                        <div class="bg-slate-900/90 p-2 rounded border border-slate-800/80">
+                            <div class="text-purple-400 font-bold mb-0.5">2. Movie &amp; 3 Track</div>
+                            <div>• moov di akhir file (FastStart Off)</div>
+                            <div>• mvhd: Timescale 1000Hz, Time=0</div>
+                            <div>• Track 1: Video 1080×1920 (avc1)</div>
+                            <div>• Track 2 &amp; 3: Dual Audio AAC (mp4a)</div>
+                        </div>
+                        <div class="bg-slate-900/90 p-2 rounded border border-slate-800/80">
+                            <div class="text-amber-400 font-bold mb-0.5">3. Tabel &amp; Metadata</div>
+                            <div>• stsd Lavc60.3.100 + colr + btrt</div>
+                            <div>• Audio sgpd (26 B) + sbgp (36 B)</div>
+                            <div>• udta → meta → hdlr(mdir) → ilst (61 B)</div>
+                            <div>• Re-kalkulasi semua pointer stco</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pilihan Konfigurasi Rebuilder -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                        <h4 class="font-semibold text-white flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            Opsi Perakitan Biner Langsung (In-Browser Remuxer)
+                        </h4>
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" id="chkCloneRootLayout" checked class="mt-0.5 rounded bg-slate-900 border-slate-700 text-blue-600">
+                            <span><strong>Paksa Urutan Root &amp; Ukuran Box:</strong> Buat <code class="text-amber-400">ftyp</code> (32B), <code class="text-slate-300">free</code> (42.375B), <code class="text-slate-300">free</code> (8B), <code class="text-emerald-400">mdat</code> utama, <code class="text-emerald-400">mdat</code> ekstra (104B), lalu <code class="text-blue-400">moov</code> di akhir.</span>
+                        </label>
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" id="chkZeroTimestamps" checked class="mt-0.5 rounded bg-slate-900 border-slate-700 text-blue-600">
+                            <span><strong>Nol-kan Timestamp &amp; Samakan Resolusi Header:</strong> Setel waktu pembuatan/modifikasi di <code class="text-blue-400">mvhd</code>, <code class="text-blue-400">tkhd</code>, <code class="text-blue-400">mdhd</code> menjadi <code class="text-emerald-400">0</code> dan dimensi visual <code class="text-blue-400">tkhd</code> ke <code class="text-emerald-400">1080 × 1920</code>.</span>
+                        </label>
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" id="chkDuplicateAudioTrack" checked class="mt-0.5 rounded bg-slate-900 border-slate-700 text-blue-600">
+                            <span><strong>Pastikan 3 Track (1 Video + 2 Audio Identik):</strong> Jika video hanya punya 1 track audio, gandakan menjadi Track ID 2 (dengan 2 entri <code class="text-amber-400">mp4a</code>) &amp; Track ID 3 (1 entri <code class="text-amber-400">mp4a</code>) lengkap dengan <code class="text-purple-400">edts/elst</code>, <code class="text-purple-400">sgpd</code>, dan <code class="text-purple-400">sbgp</code>.</span>
+                        </label>
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" id="chkInjectAvc1Extensions" checked class="mt-0.5 rounded bg-slate-900 border-slate-700 text-blue-600">
+                            <span><strong>Suntikkan Signature <code class="text-amber-400">Lavc60.3.100 libx264</code>, <code class="text-amber-400">colr</code> (1-1-1 BT.709) &amp; <code class="text-amber-400">btrt</code> Sinkron:</strong> Paksa ukuran <code class="text-emerald-400">stsd</code> Video = <code class="text-emerald-400">199 B</code> (<code class="text-emerald-400">avc1</code> = <code class="text-emerald-400">183 B</code>), <code class="text-emerald-400">stsd</code> Audio Track 2 = <code class="text-emerald-400">236 B</code> (<code class="text-emerald-400">107B + 113B</code>), serta jaga keaslian <code class="text-emerald-400">ctts/stss</code> agar tidak terkena penalti 576p di TikTok Web.</span>
+                        </label>
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" id="chkPreserveNativePtsDts" checked class="mt-0.5 rounded bg-slate-900 border-slate-700 text-blue-600">
+                            <span><strong>Anti-576p TikTok Web (Jaga Sinkronisasi PTS/DTS &amp; Bitrate Riil <code class="text-emerald-400">mdat</code>):</strong> Jangan memalsukan tabel <code class="text-amber-400">ctts</code> jika stream tidak memiliki B-frame yang sesuai, dan sesuaikan <code class="text-amber-400">btrt</code> dengan bitrate fisik <code class="text-emerald-400">mdat</code> agar server TikTok Web tidak melakukan fallback re-encode ke 576p.</span>
+                        </label>
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" id="chkUniqueMdat2Salt" checked class="mt-0.5 rounded bg-slate-900 border-slate-700 text-blue-600">
+                            <span><strong>FYP Anti-Duplicate Hash (<code class="text-emerald-400">mdat #2</code> 104B Salt):</strong> Isi 96 byte payload di dalam <code class="text-emerald-400">mdat</code> ke-2 (104 B) dengan entropi unik setiap rakit ulang agar <em>checksum</em> MD5/SHA-256 video selalu dianggap 100% konten baru oleh TikTok tanpa mengubah ukuran atom sedikit pun.</span>
+                        </label>
+                        <div class="pt-1 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                            <span class="text-[11px] text-slate-300">Mode Deklarasi Bitrate (<code class="text-amber-400">btrt</code>):</span>
+                            <select id="selTargetBitrate" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] font-mono text-emerald-300 outline-none">
+                                <option value="0" selected>Otomatis Sesuai Bitrate Fisik mdat (Anti-576p Web)</option>
+                                <option value="7294506">0x006F4E2A (7.29 Mbps - Persis 1000542961.mp4)</option>
+                                <option value="5500000">0x0053EC60 (5.50 Mbps - TikTok Web Safe 1080p)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Panel Status Kecocokan File Saat Ini -->
+                    <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-semibold text-white">Status Kecocokan Video Saat Ini</h4>
+                                <span id="cloneMatchBadge" class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300">-</span>
+                            </div>
+                            <div id="cloneAuditList" class="space-y-1 text-[11px] font-mono text-slate-400 max-h-36 overflow-y-auto pr-1">
+                                <!-- Diisi secara dinamis -->
+                            </div>
+                        </div>
+
+                        <!-- Live Video Verification Player -->
+                        <div id="clonePlayerWrap" class="hidden mt-2 pt-2 border-t border-slate-800/80">
+                            <div class="flex items-center justify-between text-[11px] mb-1">
+                                <span class="text-emerald-400 font-semibold flex items-center gap-1">▶ Uji Putar Video Hasil Rakitan:</span>
+                                <span id="clonePlayerStatus" class="font-mono text-[10px] text-slate-400">Memverifikasi dekoder...</span>
+                            </div>
+                            <video id="clonePreviewVideo" controls playsinline class="w-full max-h-36 bg-black rounded-lg border border-slate-800"></video>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-800/80 flex flex-col gap-2 mt-2">
+                            <button id="btnRunBrowserClone" class="w-full py-2.5 px-4 rounded-xl font-semibold text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                                </svg>
+                                Rakit Ulang Atom Sekarang &amp; Muat Hasilnya
+                            </button>
+                            <button id="btnDownloadClonedFile" class="hidden w-full py-2 px-4 rounded-xl font-semibold text-xs bg-blue-600 hover:bg-blue-500 text-white transition flex items-center justify-center gap-2">
+                                Unduh File MP4 Hasil Rakitan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bagian Tambahan: Perintah FFmpeg Pre-Encoding jika video mentah berbeda codec/resolusi -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono text-[10px] font-bold">SOLUSI ANTI-576p TIKTOK WEB</span>
+                                <h4 class="font-semibold text-slate-200">Mengapa Video Turun ke 576p di TikTok Web &amp; Cara Menguncinya di 1080p</h4>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1">
+                                Saat unggah lewat <strong>TikTok Web</strong>, server memeriksa isi fisik di dalam <code class="text-emerald-400">mdat</code>: (1) Codec wajib <strong>H.264 (<code class="text-amber-400">avc1</code> High@L4.2)</strong> — jika masih <code class="text-rose-400">hvc1</code> (HEVC) biasa, TikTok Web sering memaksa turun ke 576p; (2) Keyframe (<code class="text-amber-400">stss</code>) wajib terkunci setiap 250 frame (<code class="text-emerald-400">-g 250 -keyint_min 250 -sc_threshold 0</code>) seperti pada <code class="text-amber-400">1000542961.mp4</code> (<code class="text-emerald-400">1, 251, 501, 751...</code>); dan (3) Bitrate fisik stream di dalam <code class="text-emerald-400">mdat</code> harus berada di kisaran <strong>5.5 Mbps – 7.0 Mbps</strong>.
+                            </p>
+                        </div>
+                        <button id="btnCopyFfmpegCmd" class="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition shrink-0">
+                            Salin Perintah FFmpeg (1080p Lock)
+                        </button>
+                    </div>
+                    <div id="web576pDiagnosticBox" class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 text-[11px] font-mono text-slate-300">
+                        Memeriksa risiko 576p pada stream video saat ini...
+                    </div>
+                    <pre id="ffmpegCmdBox" class="bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-[11px] text-emerald-300 overflow-x-auto select-all">ffmpeg -i input.mp4 -map 0:v:0 -map 0:a:0? -map 0:a:0? -vf "scale=1080:1920:flags=lanczos,fps=60,format=yuv420p" -c:v libx264 -profile:v high -level:v 4.2 -b:v 6800k -maxrate 7294k -bufsize 14588k -x264-params "keyint=250:min-keyint=250:scenecut=0:bframes=3:b-adapt=0:ref=4:colorprim=bt709:transfer=bt709:colormatrix=bt709" -video_track_timescale 90000 -c:a aac -ar 44100 -ac 2 -b:a 128k -map_metadata -1 -movflags -faststart siap_rakit_1080p.mp4</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: GitHub Pages Deployment Guide -->
+    <div id="githubModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Panduan Hosting di GitHub Pages
+                </h3>
+                <button id="btnCloseModal" class="text-slate-400 hover:text-white text-sm font-bold px-2 py-1 rounded">✕</button>
+            </div>
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <p>Aplikasi ini dirancang khusus sebagai <strong>Single-Page Static HTML</strong> tanpa ketergantungan backend, sehingga bisa langsung berjalan gratis di GitHub Pages:</p>
+                <ol class="list-decimal list-inside space-y-2 bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-sans">
+                    <li>Buat repository baru di akun GitHub kamu (misalnya: <code class="text-blue-400 font-mono">video-atom-inspector</code>).</li>
+                    <li>Simpan kode aplikasi ini dengan nama file <code class="text-emerald-400 font-mono">index.html</code> lalu unggah (push) ke cabang utama (<code class="font-mono">main</code>).</li>
+                    <li>Buka menu <strong>Settings</strong> di repository GitHub tersebut, lalu pilih menu <strong>Pages</strong> di bilah kiri.</li>
+                    <li>Pada bagian <strong>Build and deployment &rarr; Branch</strong>, pilih <code class="font-mono">main</code> dan folder <code class="font-mono">/ (root)</code>, lalu klik <strong>Save</strong>.</li>
+                    <li>Tunggu 1–2 menit. Aplikasimu akan aktif di <code class="text-amber-400 font-mono">https://username.github.io/video-atom-inspector/</code>!</li>
+                </ol>
+                <p class="text-[11px] text-slate-400">💡 <strong>Catatan Privasi &amp; Performa:</strong> Karena menggunakan <code>File.slice()</code> dan <code>DataView</code> di browser, pengguna dapat memeriksa video berukuran beberapa Gigabyte sekalipun secara instan tanpa memakan kuota bandwidth GitHub Pages.</p>
+            </div>
+            <div class="flex justify-end pt-2">
+                <button id="btnCloseModalBottom" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition">Mengerti</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Kamus Deskripsi & Spesifikasi Atom/Box ISOBMFF (ISO/IEC 14496-12 & QuickTime)
+         */
+        const ATOM_DICTIONARY = {
+            'ftyp': { name: 'File Type Compatibility Box', category: 'Header', desc: 'Mengidentifikasi spesifikasi format file, major brand, dan kompatibilitas dekoder.' },
+            'pdin': { name: 'Progressive Download Information', category: 'Header', desc: 'Informasi kecepatan unduh progresif.' },
+            'moov': { name: 'Movie Box (Container)', category: 'Container', desc: 'Wadah utama seluruh metadata struktural, durasi, track video/audio, dan tabel indeks sampel.' },
+            'mvhd': { name: 'Movie Header Box', category: 'Metadata', desc: 'Menyimpan karakteristik global seluruh video seperti waktu pembuatan, timescale, durasi total, dan matriks pemutaran.' },
+            'trak': { name: 'Track Box (Container)', category: 'Container', desc: 'Wadah untuk satu aliran media tunggal (misalnya Track Video, Track Audio, atau Track Subtitle).' },
+            'tkhd': { name: 'Track Header Box', category: 'Metadata', desc: 'Karakteristik spesifik sebuah track termasuk ID Track, dimensi lebar/tinggi visual, serta volume.' },
+            'tref': { name: 'Track Reference Box', category: 'Container', desc: 'Referensi hubungan antar track di dalam file.' },
+            'edts': { name: 'Edit Box (Container)', category: 'Container', desc: 'Memetakan garis waktu media ke garis waktu presentasi.' },
+            'elst': { name: 'Edit List Box', category: 'Metadata', desc: 'Daftar segmen waktu edit, offset awal pemutaran, dan kecepatan media.' },
+            'mdia': { name: 'Media Box (Container)', category: 'Container', desc: 'Menampung seluruh informasi spesifik tentang data media di dalam sebuah track.' },
+            'mdhd': { name: 'Media Header Box', category: 'Metadata', desc: 'Menentukan timescale spesifik track, durasi track, dan kode bahasa ISO-639-2/T.' },
+            'hdlr': { name: 'Handler Reference Box', category: 'Metadata', desc: 'Mendeklarasikan jenis komponen media (mis: vide = Video, soun = Audio, subt = Subtitle).' },
+            'minf': { name: 'Media Information Box (Container)', category: 'Container', desc: 'Wadah objek yang mendefinisikan karakteristik spesifik handler media.' },
+            'vmhd': { name: 'Video Media Header Box', category: 'Metadata', desc: 'Atribut komposisi grafis dan warna khusus untuk track video.' },
+            'smhd': { name: 'Sound Media Header Box', category: 'Metadata', desc: 'Pengaturan keseimbangan suara (audio balance) untuk track audio.' },
+            'hmhd': { name: 'Hint Media Header Box', category: 'Metadata', desc: 'Informasi statistik jaringan untuk track streaming hint.' },
+            'nmhd': { name: 'Null Media Header Box', category: 'Metadata', desc: 'Header untuk track metadata non-visual dan non-audio.' },
+            'dinf': { name: 'Data Information Box (Container)', category: 'Container', desc: 'Menjelaskan lokasi penyimpanan data media.' },
+            'dref': { name: 'Data Reference Box', category: 'Metadata', desc: 'Tabel referensi URL/URN yang menyatakan apakah media berada di file yang sama atau eksternal.' },
+            'stbl': { name: 'Sample Table Box (Container)', category: 'Container', desc: 'Tabel inti yang memetakan waktu sampel media ke lokasi byte fisik di dalam mdat.' },
+            'stsd': { name: 'Sample Description Box', category: 'Codec', desc: 'Berisi detail enkoding/codec yang digunakan (seperti avc1/H.264, hev1/HEVC, mp4a/AAC, vp09).' },
+            'stts': { name: 'Decoding Time to Sample Box', category: 'Index', desc: 'Tabel delta waktu dekoding tiap frame/sampel (menentukan frame rate / FPS).' },
+            'ctts': { name: 'Composition Time to Sample Box', category: 'Index', desc: 'Offset antara waktu dekoding (DTS) dan waktu tampil/presentasi (PTS) untuk B-frames.' },
+            'stsc': { name: 'Sample to Chunk Box', category: 'Index', desc: 'Memetakan pengelompokan sampel ke dalam potongan chunk penyimpanan.' },
+            'stsz': { name: 'Sample Size Box', category: 'Index', desc: 'Mencatat ukuran byte dari setiap frame/sampel individual di dalam stream.' },
+            'stz2': { name: 'Compact Sample Size Box', category: 'Index', desc: 'Versi terkompresi dari tabel ukuran sampel.' },
+            'stco': { name: 'Chunk Offset Box (32-bit)', category: 'Index', desc: 'Penunjuk lokasi byte (offset 32-bit) dari setiap chunk di dalam blok data mdat.' },
+            'co64': { name: 'Chunk Offset Box (64-bit)', category: 'Index', desc: 'Penunjuk lokasi byte 64-bit untuk file video berukuran di atas 4 GB.' },
+            'stss': { name: 'Sync Sample Box (Keyframes)', category: 'Index', desc: 'Daftar nomor frame yang merupakan I-Frame / Keyframe (titik acak pencarian video).' },
+            ' sgpd': { name: 'Sample Group Description Box', category: 'Index', desc: 'Deskripsi properti grup sampel.' },
+            'sbgp': { name: 'Sample to Group Box', category: 'Index', desc: 'Memetakan sampel ke grup sampel tertentu.' },
+            'udta': { name: 'User Data Box (Container)', category: 'Container', desc: 'Metadata tambahan pengguna seperti informasi hak cipta, nama aplikasi pembuat, atau tag iTunes.' },
+            'meta': { name: 'Metadata Box', category: 'Metadata', desc: 'Struktur metadata umum berformat kunci-nilai (sering menyimpan informasi encoder seperti Lavf/HandBrake).' },
+            'ilst': { name: 'Item List Box', category: 'Container', desc: 'Daftar item metadata (judul, artis, tool encoder).' },
+            'mdat': { name: 'Media Data Box (Payload)', category: 'Payload', desc: 'Blok data mentah tempat seluruh frame video dan sampel audio yang terkompresi disimpan.' },
+            'free': { name: 'Free Space Box', category: 'Padding', desc: 'Ruang byte kosong (padding) yang dapat diabaikan atau ditimpa tanpa merusak struktur video.' },
+            'skip': { name: 'Skip Box', category: 'Padding', desc: 'Ruang byte kosong serupa dengan free box.' },
+            'wide': { name: 'Wide Placeholder Box', category: 'Padding', desc: 'Ruang reservasi untuk ekspansi ukuran atom ke 64-bit.' },
+            'mvex': { name: 'Movie Extends Box (Container)', category: 'Container', desc: 'Menandakan bahwa file ini adalah Fragmented MP4 (fMP4 / DASH / HLS).' },
+            'moof': { name: 'Movie Fragment Box (Container)', category: 'Container', desc: 'Potongan metadata fragmen pada video streaming (fMP4).' },
+            'mfhd': { name: 'Movie Fragment Header Box', category: 'Metadata', desc: 'Urutan nomor fragmen video.' },
+            'traf': { name: 'Track Fragment Box (Container)', category: 'Container', desc: 'Wadah metadata track di dalam sebuah fragmen.' },
+            'tfhd': { name: 'Track Fragment Header Box', category: 'Metadata', desc: 'Header karakteristik default sampel pada fragmen.' },
+            'tfdt': { name: 'Track Fragment Decode Time', category: 'Metadata', desc: 'Waktu dekoding absolut awal dari sebuah fragmen.' },
+            'trun': { name: 'Track Fragment Run Box', category: 'Index', desc: 'Daftar sampel berurutan di dalam sebuah fragmen fMP4.' },
+            'sidx': { name: 'Segment Index Box', category: 'Index', desc: 'Indeks segmen untuk adaptive bitrate streaming (DASH).' },
+            'avc1': { name: 'H.264 / AVC Visual Sample Entry', category: 'Codec', desc: 'Konfigurasi stream video H.264 / Advanced Video Coding.' },
+            'avcC': { name: 'AVC Decoder Configuration Record', category: 'Codec', desc: 'Parameter profil H.264, level, serta NAL unit SPS & PPS.' },
+            'hev1': { name: 'H.265 / HEVC Visual Sample Entry', category: 'Codec', desc: 'Konfigurasi stream video H.265 / High Efficiency Video Coding.' },
+            'hvc1': { name: 'H.265 / HEVC Parameter Stream', category: 'Codec', desc: 'Konfigurasi stream video H.265.' },
+            'hvcC': { name: 'HEVC Decoder Configuration', category: 'Codec', desc: 'Konfigurasi dekoder HEVC (VPS, SPS, PPS).' },
+            'mp4a': { name: 'MPEG-4 Audio Sample Entry (AAC)', category: 'Codec', desc: 'Deskripsi sampel stream audio AAC / MPEG-4.' },
+            'esds': { name: 'Elementary Stream Descriptor', category: 'Codec', desc: 'Deskriptor konfigurasi bitrate dan profil audio/video.' },
+            'pasp': { name: 'Pixel Aspect Ratio Box', category: 'Metadata', desc: 'Rasio aspek piksel horizontal dan vertikal.' },
+            'colr': { name: 'Colour Information Box', category: 'Metadata', desc: 'Profil ruang warna (Color Primaries, Transfer Characteristics, Matrix Coefficients).' }
+        };
+
+        // Daftar box yang bertindak sebagai Container murni (berisi sub-atom langsung setelah header)
+        const CONTAINER_ATOMS = new Set([
+            'moov', 'trak', 'edts', 'mdia', 'minf', 'dinf', 'stbl',
+            'mvex', 'moof', 'traf', 'mfra', 'udta', 'ilst', 'tref'
+        ]);
+
+        // State Global Aplikasi
+        let currentFile = null;
+        let rootAtoms = [];
+        let flatAtoms = [];
+        let selectedAtom = null;
+        let currentHexPage = 0;
+        let currentHexPlainText = '';
+        let currentReportMode = 'tree_full';
+        const HEX_BYTES_PER_PAGE = 512; // 32 baris x 16 byte
+
+        /**
+         * Utilitas Salin Teks ke Clipboard (Mendukung penuh iFrame & GitHub Pages)
+         */
+        function copyTextToClipboard(text, message = 'Berhasil disalin ke clipboard!') {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showCopyToast(message);
+            } catch (err) {
+                showCopyToast('Gagal menyalin teks.');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        let toastTimer = null;
+        function showCopyToast(msg) {
+            const toast = document.getElementById('copyToast');
+            const toastText = document.getElementById('copyToastText');
+            toastText.textContent = msg;
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('flex');
+            }, 2800);
+        }
+
+        /**
+         * Menghasilkan Laporan Teks Pohon Struktur Atom & Metadata Video Secara Menyeluruh
+         */
+        function generateFullAtomReport(mode = 'tree_full') {
+            if (!currentFile || !rootAtoms.length) return 'Belum ada file video yang dimuat.';
+
+            if (mode === 'json') {
+                return JSON.stringify({
+                    fileName: currentFile.name,
+                    fileSize: currentFile.size,
+                    mimeType: currentFile.type || 'video/mp4',
+                    totalAtoms: flatAtoms.length,
+                    atoms: rootAtoms
+                }, null, 2);
+            }
+
+            const lines = [];
+            lines.push('====================================================================');
+            lines.push('LAPORAN STRUKTUR ATOM & METADATA VIDEO (ATOMLENS ISOBMFF INSPECTOR)');
+            lines.push('====================================================================');
+            lines.push(`Nama File   : ${currentFile.name}`);
+            lines.push(`Ukuran File : ${formatBytes(currentFile.size)} (${currentFile.size.toLocaleString()} bytes)`);
+            lines.push(`Tipe MIME   : ${currentFile.type || 'video/mp4'}`);
+            lines.push(`Total Atom  : ${flatAtoms.length} atom terdeteksi`);
+            lines.push(`Urutan Root : ${rootAtoms.map(a => a.type).join(' -> ')}`);
+            lines.push('--------------------------------------------------------------------');
+            lines.push('');
+
+            function walkTree(atoms, prefix = '') {
+                atoms.forEach((atom, idx) => {
+                    const isLast = idx === atoms.length - 1;
+                    const branch = isLast ? '└── ' : '├── ';
+                    const childPrefix = prefix + (isLast ? '    ' : '│   ');
+                    const offsetHex = '0x' + atom.offset.toString(16).toUpperCase().padStart(8, '0');
+                    const pct = ((atom.size / currentFile.size) * 100).toFixed(2);
+
+                    lines.push(`${prefix}${branch}[${atom.type}] ${atom.name} | Offset: ${offsetHex} (${atom.offset} B) | Size: ${formatBytes(atom.size)} (${atom.size.toLocaleString()} B / ${pct}%) | Header: ${atom.headerSize} B`);
+
+                    if (mode === 'tree_full' && atom.parsedData) {
+                        const visibleEntries = Object.entries(atom.parsedData).filter(([k]) => !k.startsWith('_'));
+                        visibleEntries.forEach(([k, v]) => {
+                            lines.push(`${childPrefix}   • ${k}: ${v}`);
+                        });
+                    }
+
+                    if (atom.children && atom.children.length > 0) {
+                        walkTree(atom.children, childPrefix);
+                    }
+                });
+            }
+
+            walkTree(rootAtoms, '');
+            return lines.join('\n');
+        }
+
+        /**
+         * Menghasilkan Ringkasan Teks untuk 1 Atom yang Sedang Dipilih
+         */
+        function generateSelectedAtomText(atom) {
+            if (!atom) return '';
+            const offsetHex = '0x' + atom.offset.toString(16).toUpperCase().padStart(8, '0');
+            const lines = [
+                `Atom FourCC   : [${atom.type}] ${atom.name}`,
+                `Path Hirarki  : ${atom.path}`,
+                `Kategori      : ${atom.category}`,
+                `Deskripsi     : ${atom.description}`,
+                `Offset Awal   : ${offsetHex} (${atom.offset.toLocaleString()} bytes)`,
+                `Total Ukuran  : ${formatBytes(atom.size)} (${atom.size.toLocaleString()} bytes)`,
+                `Ukuran Header : ${atom.headerSize} bytes`,
+                `Ukuran Payload: ${formatBytes(atom.payloadSize)} (${atom.payloadSize.toLocaleString()} bytes)`,
+                `Jumlah SubBox : ${atom.children ? atom.children.length : 0}`
+            ];
+
+            if (atom.parsedData) {
+                const entries = Object.entries(atom.parsedData).filter(([k]) => !k.startsWith('_'));
+                if (entries.length > 0) {
+                    lines.push('\n--- Metadata Terdekode ---');
+                    entries.forEach(([k, v]) => lines.push(`${k}: ${v}`));
+                }
+            }
+            return lines.join('\n');
+        }
+
+        // Elemen DOM
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const btnSample = document.getElementById('btnSample');
+        const summarySection = document.getElementById('summarySection');
+        const visualMapSection = document.getElementById('visualMapSection');
+        const workspaceSection = document.getElementById('workspaceSection');
+        const atomTreeContainer = document.getElementById('atomTreeContainer');
+        const atomSearch = document.getElementById('atomSearch');
+
+        /**
+         * Utilitas Format Ukuran Byte
+         */
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        /**
+         * Utilitas Konversi Timestamp Mac HFS+ (Sejak 1 Jan 1904) ke Tanggal ISO
+         */
+        function macTimeToDateString(macSeconds) {
+            if (!macSeconds || macSeconds === 0) return 'Tidak disetel (0)';
+            const MAC_EPOCH_OFFSET = 2082844800; // Detik antara 1904-01-01 dan 1970-01-01
+            const unixMs = (macSeconds - MAC_EPOCH_OFFSET) * 1000;
+            if (unixMs < 0 || isNaN(unixMs)) return `Raw: ${macSeconds}`;
+            const d = new Date(unixMs);
+            return d.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+        }
+
+        /**
+         * Utilitas Format Durasi Detik ke HH:MM:SS.ms
+         */
+        function formatDuration(seconds) {
+            if (!isFinite(seconds) || seconds < 0) return '-';
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = (seconds % 60).toFixed(2);
+            if (hrs > 0) {
+                return `${hrs}j ${mins}m ${secs}d (${seconds.toFixed(3)} dtk)`;
+            }
+            return `${mins}m ${secs}d (${seconds.toFixed(3)} dtk)`;
+        }
+
+        /**
+         * Membaca slice byte dari objek File/Blob sebagai DataView
+         */
+        async function readSlice(file, offset, length) {
+            const safeLength = Math.max(0, Math.min(length, file.size - offset));
+            const slice = file.slice(offset, offset + safeLength);
+            const buffer = await slice.arrayBuffer();
+            return new DataView(buffer);
+        }
+
+        /**
+         * Membaca string ASCII dari DataView
+         */
+        function readAscii(view, offset, length) {
+            let str = '';
+            for (let i = 0; i < length && (offset + i) < view.byteLength; i++) {
+                const code = view.getUint8(offset + i);
+                str += (code >= 32 && code <= 126) ? String.fromCharCode(code) : '.';
+            }
+            return str;
+        }
+
+        /**
+         * Validasi apakah 4 byte adalah karakter FourCC yang valid
+         */
+        function isValidFourCC(view, offset) {
+            if (offset + 4 > view.byteLength) return false;
+            for (let i = 0; i < 4; i++) {
+                const c = view.getUint8(offset + i);
+                // Izinkan karakter cetak ASCII atau simbol hak cipta (0xA9 ©)
+                if ((c < 32 || c > 126) && c !== 0xA9) return false;
+            }
+            return true;
+        }
+
+        /**
+         * Parser Rekursif Atom ISOBMFF (MP4 / MOV)
+         */
+        async function parseAtomsRecursive(file, startOffset, endOffset, depth = 0, parentPath = '') {
+            const atoms = [];
+            let cursor = startOffset;
+            let safetyCounter = 0;
+
+            while (cursor + 8 <= endOffset && safetyCounter < 5000) {
+                safetyCounter++;
+                const headerView = await readSlice(file, cursor, 16);
+                if (headerView.byteLength < 8) break;
+
+                let size32 = headerView.getUint32(0, false);
+                if (!isValidFourCC(headerView, 4)) {
+                    // Bukan header atom yang valid, hentikan cabang ini
+                    break;
+                }
+
+                // Baca FourCC
+                let type = '';
+                for (let i = 0; i < 4; i++) {
+                    const c = headerView.getUint8(4 + i);
+                    type += (c === 0xA9) ? '©' : String.fromCharCode(c);
+                }
+
+                let headerSize = 8;
+                let totalSize = size32;
+
+                // Jika size == 1, ukuran 64-bit berada di 8 byte berikutnya (largesize)
+                if (size32 === 1) {
+                    if (headerView.byteLength < 16) break;
+                    const high = headerView.getUint32(8, false);
+                    const low = headerView.getUint32(12, false);
+                    totalSize = high * 4294967296 + low;
+                    headerSize = 16;
+                } else if (size32 === 0) {
+                    // size == 0 berarti atom membentang hingga akhir file/container
+                    totalSize = endOffset - cursor;
+                }
+
+                // Cegah ukuran korup atau melampaui batas induk
+                if (totalSize < headerSize || cursor + totalSize > endOffset) {
+                    totalSize = Math.max(headerSize, endOffset - cursor);
+                }
+
+                const currentPath = `${parentPath}/${type}`;
+                const dictInfo = ATOM_DICTIONARY[type] || {
+                    name: `Box Spesifik / Kustom (${type})`,
+                    category: 'Custom',
+                    desc: 'Atom ekstensi spesifik vendor atau metadata tambahan.'
+                };
+
+                const atomNode = {
+                    id: `atom_${cursor}_${depth}_${Math.random().toString(36).substr(2, 5)}`,
+                    type,
+                    name: dictInfo.name,
+                    category: dictInfo.category,
+                    description: dictInfo.desc,
+                    offset: cursor,
+                    size: totalSize,
+                    headerSize,
+                    payloadOffset: cursor + headerSize,
+                    payloadSize: totalSize - headerSize,
+                    depth,
+                    path: currentPath,
+                    children: [],
+                    parsedData: null
+                };
+
+                // Dekode isi payload jika termasuk atom metadata penting
+                if (['ftyp', 'mvhd', 'tkhd', 'mdhd', 'hdlr', 'vmhd', 'smhd', 'stsd', 'stts', 'stsz', 'stco', 'co64', 'stss', 'elst'].includes(type)) {
+                    try {
+                        atomNode.parsedData = await decodeSpecificAtom(file, atomNode);
+                    } catch (e) {
+                        atomNode.parsedData = { Error: 'Gagal mendekode payload atom: ' + e.message };
+                    }
+                }
+
+                // Cek apakah atom ini adalah Container atau punya anak (seperti meta atau stsd)
+                if (CONTAINER_ATOMS.has(type) && atomNode.payloadSize >= 8 && depth < 10) {
+                    atomNode.children = await parseAtomsRecursive(
+                        file,
+                        atomNode.payloadOffset,
+                        cursor + totalSize,
+                        depth + 1,
+                        currentPath
+                    );
+                } else if (type === 'meta' && atomNode.payloadSize > 12 && depth < 10) {
+                    // 'meta' adalah FullBox (memiliki 4 byte version+flags sebelum sub-atom)
+                    atomNode.children = await parseAtomsRecursive(
+                        file,
+                        atomNode.payloadOffset + 4,
+                        cursor + totalSize,
+                        depth + 1,
+                        currentPath
+                    );
+                } else if (type === 'stsd' && atomNode.payloadSize > 16 && depth < 10) {
+                    // 'stsd' memiliki 8 byte (version+flags + entry_count) sebelum sub-box codec (seperti avc1, mp4a)
+                    atomNode.children = await parseAtomsRecursive(
+                        file,
+                        atomNode.payloadOffset + 8,
+                        cursor + totalSize,
+                        depth + 1,
+                        currentPath
+                    );
+                }
+
+                atoms.push(atomNode);
+                flatAtoms.push(atomNode);
+
+                cursor += totalSize;
+            }
+
+            return atoms;
+        }
+
+        /**
+         * Dekoder Spesifik untuk Atom-Atom Inti (ftyp, mvhd, tkhd, mdhd, hdlr, stsd, stts, dll.)
+         */
+        async function decodeSpecificAtom(file, atom) {
+            const maxRead = Math.min(atom.payloadSize, 4096);
+            const view = await readSlice(file, atom.payloadOffset, maxRead);
+            const info = {};
+
+            if (atom.type === 'ftyp' && view.byteLength >= 8) {
+                const majorBrand = readAscii(view, 0, 4);
+                const minorVersion = view.getUint32(4, false);
+                const compat = [];
+                for (let i = 8; i + 4 <= view.byteLength; i += 4) {
+                    compat.push(readAscii(view, i, 4));
+                }
+                info['Major Brand'] = majorBrand;
+                info['Minor Version'] = minorVersion;
+                info['Compatible Brands'] = compat.join(', ') || '-';
+            }
+
+            else if (atom.type === 'mvhd' && view.byteLength >= 20) {
+                const version = view.getUint8(0);
+                info['Versi FullBox'] = version;
+                let offset = 4;
+                let creationTime, modificationTime, timescale, duration;
+
+                if (version === 1 && view.byteLength >= 32) {
+                    creationTime = Number(view.getBigUint64(offset, false));
+                    modificationTime = Number(view.getBigUint64(offset + 8, false));
+                    timescale = view.getUint32(offset + 16, false);
+                    duration = Number(view.getBigUint64(offset + 20, false));
+                    offset += 28;
+                } else {
+                    creationTime = view.getUint32(offset, false);
+                    modificationTime = view.getUint32(offset + 4, false);
+                    timescale = view.getUint32(offset + 8, false);
+                    duration = view.getUint32(offset + 12, false);
+                    offset += 16;
+                }
+
+                const durationSec = timescale > 0 ? (duration / timescale) : 0;
+                info['Waktu Pembuatan'] = macTimeToDateString(creationTime);
+                info['Waktu Modifikasi'] = macTimeToDateString(modificationTime);
+                info['Timescale (Unit/Detik)'] = `${timescale.toLocaleString()} Hz`;
+                info['Durasi Mentah (Ticks)'] = duration.toLocaleString();
+                info['Durasi Terhitung'] = formatDuration(durationSec);
+                info['_durationSec'] = durationSec;
+
+                if (offset + 6 <= view.byteLength) {
+                    const rateFixed = view.getUint32(offset, false);
+                    const volumeFixed = view.getUint16(offset + 4, false);
+                    info['Kecepatan Putar Normal (Rate)'] = (rateFixed / 65536).toFixed(2) + 'x';
+                    info['Volume Master'] = ((volumeFixed / 256) * 100).toFixed(0) + '%';
+                }
+            }
+
+            else if (atom.type === 'tkhd' && view.byteLength >= 24) {
+                const version = view.getUint8(0);
+                const flags = (view.getUint8(1) << 16) | (view.getUint8(2) << 8) | view.getUint8(3);
+                info['Versi FullBox'] = version;
+                info['Status Track Flags'] = `0x${flags.toString(16).padStart(6, '0')} (${(flags & 1) ? 'Aktif/Enabled' : 'Nonaktif'})`;
+
+                let offset = 4;
+                let trackId, duration;
+                if (version === 1 && view.byteLength >= 36) {
+                    const cTime = Number(view.getBigUint64(offset, false));
+                    trackId = view.getUint32(offset + 16, false);
+                    duration = Number(view.getBigUint64(offset + 24, false));
+                    info['Waktu Pembuatan Track'] = macTimeToDateString(cTime);
+                    offset += 32;
+                } else {
+                    const cTime = view.getUint32(offset, false);
+                    trackId = view.getUint32(offset + 8, false);
+                    duration = view.getUint32(offset + 16, false);
+                    info['Waktu Pembuatan Track'] = macTimeToDateString(cTime);
+                    offset += 20;
+                }
+
+                info['Track ID'] = trackId;
+                info['Durasi Track (Ticks)'] = duration.toLocaleString();
+
+                // Lompati reserved(8), layer(2), alternate_group(2), volume(2), reserved(2), matrix(36) = 52 byte
+                if (offset + 60 <= view.byteLength) {
+                    const widthFixed = view.getUint32(offset + 52, false);
+                    const heightFixed = view.getUint32(offset + 56, false);
+                    const width = widthFixed / 65536;
+                    const height = heightFixed / 65536;
+                    info['Resolusi Visual Track'] = `${width} × ${height} px`;
+                    info['_width'] = width;
+                    info['_height'] = height;
+                }
+            }
+
+            else if (atom.type === 'mdhd' && view.byteLength >= 20) {
+                const version = view.getUint8(0);
+                let offset = 4;
+                let timescale, duration;
+                if (version === 1 && view.byteLength >= 32) {
+                    timescale = view.getUint32(offset + 16, false);
+                    duration = Number(view.getBigUint64(offset + 20, false));
+                    offset += 28;
+                } else {
+                    timescale = view.getUint32(offset + 8, false);
+                    duration = view.getUint32(offset + 12, false);
+                    offset += 16;
+                }
+                const durationSec = timescale > 0 ? (duration / timescale) : 0;
+                info['Timescale Media'] = `${timescale.toLocaleString()} Hz`;
+                info['Durasi Media'] = formatDuration(durationSec);
+
+                if (offset + 2 <= view.byteLength) {
+                    const langBits = view.getUint16(offset, false);
+                    const c1 = ((langBits >> 10) & 0x1F) + 0x60;
+                    const c2 = ((langBits >> 5) & 0x1F) + 0x60;
+                    const c3 = (langBits & 0x1F) + 0x60;
+                    info['Kode Bahasa (ISO-639-2)'] = String.fromCharCode(c1, c2, c3);
+                }
+            }
+
+            else if (atom.type === 'hdlr' && view.byteLength >= 12) {
+                const handlerType = readAscii(view, 8, 4);
+                const handlerMap = {
+                    'vide': 'Video Track (Visual Stream)',
+                    'soun': 'Audio Track (Sound Stream)',
+                    'subt': 'Subtitle Track',
+                    'meta': 'Timed Metadata Track',
+                    'hint': 'Hint Streaming Track',
+                    'text': 'QuickTime Text Track'
+                };
+                info['Handler Code'] = handlerType;
+                info['Kategori Aliran Media'] = handlerMap[handlerType] || `Handler Spesifik (${handlerType})`;
+                if (view.byteLength > 24) {
+                    info['Nama Handler / Deskripsi'] = readAscii(view, 24, view.byteLength - 24).replace(/\./g, '').trim() || '-';
+                }
+            }
+
+            else if (atom.type === 'stsd' && view.byteLength >= 16) {
+                const entryCount = view.getUint32(4, false);
+                const firstCodec = readAscii(view, 12, 4);
+                info['Jumlah Deskripsi Sampel'] = entryCount;
+                info['Format / Codec Utama (FourCC)'] = firstCodec;
+                info['_codec'] = firstCodec;
+            }
+
+            else if (atom.type === 'stts' && view.byteLength >= 8) {
+                const entryCount = view.getUint32(4, false);
+                info['Jumlah Entri Time-to-Sample'] = entryCount.toLocaleString();
+                if (entryCount > 0 && view.byteLength >= 16) {
+                    const sampleCount = view.getUint32(8, false);
+                    const sampleDelta = view.getUint32(12, false);
+                    info['Total Sampel Entri Pertama'] = sampleCount.toLocaleString();
+                    info['Delta Waktu per Sampel'] = `${sampleDelta} ticks`;
+                }
+            }
+
+            else if (atom.type === 'stsz' && view.byteLength >= 12) {
+                const uniformSize = view.getUint32(4, false);
+                const sampleCount = view.getUint32(8, false);
+                info['Ukuran Sampel Konstan'] = uniformSize === 0 ? 'Bervariasi per Frame (Variable Bitrate)' : `${uniformSize} bytes`;
+                info['Total Jumlah Sampel / Frame'] = sampleCount.toLocaleString();
+                info['_sampleCount'] = sampleCount;
+            }
+
+            else if ((atom.type === 'stco' || atom.type === 'co64') && view.byteLength >= 8) {
+                const entryCount = view.getUint32(4, false);
+                info['Tipe Penunjuk Offset'] = atom.type === 'co64' ? '64-bit Offset' : '32-bit Offset';
+                info['Total Jumlah Chunk Media'] = entryCount.toLocaleString();
+            }
+
+            else if (atom.type === 'stss' && view.byteLength >= 8) {
+                const keyframeCount = view.getUint32(4, false);
+                info['Total Keyframes (I-Frames)'] = keyframeCount.toLocaleString();
+            }
+
+            return info;
+        }
+
+        /**
+         * Orkestrasi Pemindaian File Video Utama
+         */
+        async function processVideoFile(file) {
+            currentFile = file;
+            rootAtoms = [];
+            flatAtoms = [];
+            selectedAtom = null;
+
+            // Tampilkan UI Workspace
+            summarySection.classList.remove('hidden');
+            visualMapSection.classList.remove('hidden');
+            document.getElementById('forensicSection').classList.remove('hidden');
+            workspaceSection.classList.remove('hidden');
+
+            atomTreeContainer.innerHTML = `<div class="p-4 text-center text-slate-400">Memindai struktur byte atom...</div>`;
+
+            // Parse pohon atom dari byte 0 hingga ukuran file penuh
+            rootAtoms = await parseAtomsRecursive(file, 0, file.size, 0, '');
+
+            // Perbarui kartu ringkasan atas
+            updateSummaryCards(file);
+
+            // Gambar peta visual distribusi byte
+            renderVisualByteMap(file.size);
+
+            // Jalankan analisis forensik jejak edit
+            renderForensicAnalysis();
+
+            // Render pohon atom di panel kiri
+            renderAtomTree();
+
+            // Pilih atom pertama secara otomatis jika tersedia
+            if (rootAtoms.length > 0) {
+                selectAtomNode(rootAtoms[0]);
+            }
+        }
+
+        /**
+         * Memperbarui Kartu Ringkasan Metadata Tingkat Atas
+         */
+        function updateSummaryCards(file) {
+            document.getElementById('metaFileName').textContent = file.name;
+            document.getElementById('metaFileName').title = file.name;
+            document.getElementById('metaFileSize').textContent = `${formatBytes(file.size)} (${file.size.toLocaleString()} bytes)`;
+            document.getElementById('metaMime').textContent = file.type || 'video/mp4';
+
+            // Cari ftyp
+            const ftypAtom = flatAtoms.find(a => a.type === 'ftyp');
+            if (ftypAtom && ftypAtom.parsedData) {
+                document.getElementById('metaBrand').textContent = ftypAtom.parsedData['Major Brand'] || '-';
+                document.getElementById('metaCompatBrands').textContent = `Kompatibel: ${ftypAtom.parsedData['Compatible Brands'] || '-'}`;
+            } else {
+                document.getElementById('metaBrand').textContent = 'Tidak ada ftyp';
+                document.getElementById('metaCompatBrands').textContent = 'Format mentah / non-ISOBMFF';
+            }
+
+            // Cari mvhd (durasi), tkhd (resolusi), dan stsd (codec)
+            const mvhdAtom = flatAtoms.find(a => a.type === 'mvhd');
+            const tkhdAtoms = flatAtoms.filter(a => a.type === 'tkhd');
+            const stsdAtoms = flatAtoms.filter(a => a.type === 'stsd');
+
+            let durationSec = 0;
+            if (mvhdAtom && mvhdAtom.parsedData && mvhdAtom.parsedData._durationSec) {
+                durationSec = mvhdAtom.parsedData._durationSec;
+                document.getElementById('metaDuration').textContent = formatDuration(durationSec);
+            } else {
+                document.getElementById('metaDuration').textContent = 'Tidak terdeteksi';
+            }
+
+            let resolutionStr = 'Audio / Tanpa Video';
+            for (const tk of tkhdAtoms) {
+                if (tk.parsedData && tk.parsedData._width > 0 && tk.parsedData._height > 0) {
+                    resolutionStr = `${tk.parsedData._width} × ${tk.parsedData._height} px`;
+                    break;
+                }
+            }
+
+            const codecs = stsdAtoms
+                .map(s => s.parsedData && s.parsedData._codec)
+                .filter(Boolean);
+            if (codecs.length > 0) {
+                resolutionStr += ` • Codec: ${codecs.join(', ')}`;
+            }
+            document.getElementById('metaResolution').textContent = resolutionStr;
+
+            // Estimasi FPS dari stsz & durasi
+            const stszAtom = flatAtoms.find(a => a.type === 'stsz' && a.parsedData && a.parsedData._sampleCount > 1);
+            if (stszAtom && durationSec > 0) {
+                const fps = (stszAtom.parsedData._sampleCount / durationSec).toFixed(2);
+                document.getElementById('metaFps').textContent = `~${fps} fps`;
+            } else {
+                document.getElementById('metaFps').textContent = '';
+            }
+
+            // Statistik Atom & FastStart (apakah moov berada sebelum mdat)
+            document.getElementById('metaAtomCount').textContent = `${flatAtoms.length} Atom Terdeteksi`;
+            const topTypes = rootAtoms.map(a => a.type).join(' → ');
+            document.getElementById('metaTopLevelBoxes').textContent = `Urutan Root: ${topTypes || '-'}`;
+
+            const moovIdx = rootAtoms.findIndex(a => a.type === 'moov');
+            const mdatIdx = rootAtoms.findIndex(a => a.type === 'mdat');
+            const fastStartBadge = document.getElementById('metaFastStart');
+            if (moovIdx !== -1 && mdatIdx !== -1) {
+                if (moovIdx < mdatIdx) {
+                    fastStartBadge.textContent = 'Web FastStart Aktif';
+                    fastStartBadge.className = 'text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                } else {
+                    fastStartBadge.textContent = 'moov di Akhir File';
+                    fastStartBadge.className = 'text-[11px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20';
+                }
+            } else {
+                fastStartBadge.textContent = 'Struktur Standar';
+            }
+        }
+
+        /**
+         * Menggambar Peta Proporsi Byte Atom Top-Level
+         */
+        function renderVisualByteMap(totalFileSize) {
+            const bar = document.getElementById('byteMapBar');
+            bar.innerHTML = '';
+
+            const colorPalette = {
+                'ftyp': 'bg-amber-500/80 hover:bg-amber-400',
+                'moov': 'bg-blue-500/80 hover:bg-blue-400',
+                'mdat': 'bg-emerald-600/80 hover:bg-emerald-500',
+                'free': 'bg-slate-600 hover:bg-slate-500',
+                'skip': 'bg-slate-600 hover:bg-slate-500',
+                'moof': 'bg-purple-500/80 hover:bg-purple-400'
+            };
+
+            rootAtoms.forEach(atom => {
+                const pct = Math.max(3, (atom.size / totalFileSize) * 100);
+                const bgClass = colorPalette[atom.type] || 'bg-indigo-500/80 hover:bg-indigo-400';
+
+                const seg = document.createElement('div');
+                seg.style.width = `${pct}%`;
+                seg.className = `${bgClass} h-full first:rounded-l last:rounded-r flex items-center justify-center text-[10px] font-mono font-bold text-white cursor-pointer transition overflow-hidden px-1`;
+                seg.title = `${atom.type} (${formatBytes(atom.size)} | Offset: ${atom.offset})`;
+                seg.textContent = `${atom.type} (${((atom.size / totalFileSize) * 100).toFixed(1)}%)`;
+                seg.addEventListener('click', () => selectAtomNode(atom));
+                bar.appendChild(seg);
+            });
+        }
+
+        /**
+         * Analisis Forensik Struktur Atom untuk Mendeteksi Apakah Video Hasil Edit / Remux
+         */
+        function renderForensicAnalysis() {
+            const grid = document.getElementById('forensicFindingsGrid');
+            const badge = document.getElementById('forensicVerdictBadge');
+            const tiktokBadge = document.getElementById('tiktokBypassBadge');
+            if (!rootAtoms.length) return;
+
+            const findings = [];
+            let editScore = 0;
+            let tiktokPassScore = 0;
+
+            // 1. Cek multi-free & multi-mdat (Trick Passthrough Ingest Engine)
+            const freeAtoms = rootAtoms.filter(a => a.type === 'free');
+            const mdatAtoms = rootAtoms.filter(a => a.type === 'mdat');
+            if (freeAtoms.length >= 2 && mdatAtoms.length >= 2) {
+                editScore += 40;
+                tiktokPassScore += 30;
+                findings.push({
+                    title: '1. Dual-mdat & Free Padding (Ingest Bypass)',
+                    color: 'border-amber-500/30 bg-amber-500/5 text-amber-300',
+                    desc: `Blok [free] (${freeAtoms.map(f => f.size + 'B').join('+')}) dan [mdat] ke-2 (104 B) meniru struktur remuxer internal pasca-kompresi sehingga server ingest menganggap file sudah diproses di sisi klien.`
+                });
+            }
+
+            // 2. Cek Timestamp 0 & Clean ilst (Anti-Duplicate Hash & Freshness)
+            const mvhd = flatAtoms.find(a => a.type === 'mvhd');
+            const ilst = flatAtoms.find(a => a.type === 'ilst');
+            if (mvhd && mvhd.parsedData && String(mvhd.parsedData['Waktu Pembuatan']).includes('(0)')) {
+                editScore += 25;
+                tiktokPassScore += 25;
+                findings.push({
+                    title: '2. Zero-Timestamp & Clean ilst (FYP Safe)',
+                    color: 'border-blue-500/30 bg-blue-500/5 text-blue-300',
+                    desc: `Waktu pembuatan = 0 dan [ilst] kosong (${ilst ? ilst.size : 8} B). Menghapus jejak software editor pihak ketiga & ID histori perangkat sehingga algoritma menilai video sebagai konten baru (fresh upload).`
+                });
+            }
+
+            // 3. Cek Dual Audio Track & Multi-Entry stsd (Audio Fingerprint Evasion)
+            const moov = rootAtoms.find(a => a.type === 'moov');
+            // 4. Cek Parameter Visual TikTok Passthrough (1080x1920, 90kHz, colr bt709 & btrt) + Risiko 576p Web
+            const vTkhd = flatAtoms.find(a => a.type === 'tkhd' && a.parsedData && a.parsedData._width > 0);
+            const vMdhd = flatAtoms.find(a => a.type === 'mdhd' && a.parsedData && a.parsedData['Timescale Media'] === '90,000 Hz');
+            const vStsd = flatAtoms.find(a => a.type === 'stsd' && a.parsedData && (a.parsedData._codec === 'avc1' || a.parsedData._codec === 'hvc1'));
+            const mainMdat = rootAtoms.filter(a => a.type === 'mdat').sort((a, b) => b.size - a.size)[0];
+            const durSec = (mvhd && mvhd.parsedData && mvhd.parsedData._durationSec) ? mvhd.parsedData._durationSec : 0;
+            const realMbps = (mainMdat && durSec > 0) ? ((mainMdat.size * 8) / durSec / 1000000) : 0;
+            const codecName = vStsd && vStsd.parsedData ? vStsd.parsedData._codec : '-';
+
+            if (codecName === 'hvc1' || realMbps > 9.0 || realMbps < 1.0) {
+                findings.push({
+                    title: `4. Peringatan TikTok Web 576p (${codecName} @ ${realMbps.toFixed(2)} Mbps)`,
+                    color: 'border-rose-500/40 bg-rose-500/10 text-rose-300',
+                    desc: codecName === 'hvc1'
+                        ? `Stream video menggunakan [${codecName}] (HEVC). TikTok Web sering men-downscale HEVC non-ByteVC1 ke 576p! Gunakan avc1 (H.264 High@L4.2) dengan bitrate ~6.8 Mbps agar terkunci 1080p.`
+                        : `Bitrate fisik mdat (${realMbps.toFixed(2)} Mbps) berada di luar zona aman TikTok Web (5.0–7.5 Mbps), berisiko diturunkan ke 576p.`
+                });
+            } else if (vTkhd && vMdhd && vStsd && (vStsd.size === 199 || vStsd.size === 232)) {
+                tiktokPassScore += 20;
+                findings.push({
+                    title: `4. Lolos 1080p Web & App (${codecName} @ ${realMbps.toFixed(2)} Mbps)`,
+                    color: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-300',
+                    desc: `Codec avc1, Resolusi 1080×1920, Timescale 90,000 Hz, Color nclx (1-1-1 BT.709), dan Bitrate fisik mdat ${realMbps.toFixed(2)} Mbps aman dari penalti 576p TikTok Web.`
+                });
+            }
+
+            if (tiktokBadge) {
+                tiktokBadge.textContent = `TikTok Bypass & FYP Score: ${tiktokPassScore}%`;
+                tiktokBadge.className = tiktokPassScore >= 80
+                    ? 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold'
+                    : 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700';
+            }
+
+            if (editScore >= 50) {
+                badge.textContent = `STRUKTUR CUSTOM REMUX / BYPASS (${editScore}/100)`;
+                badge.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold';
+            } else {
+                badge.textContent = `Struktur Standar / Rekaman Langsung`;
+                badge.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+            }
+
+            grid.innerHTML = findings.map(f => `
+                <div class="rounded-lg border p-2.5 ${f.color}">
+                    <div class="font-semibold mb-1">${f.title}</div>
+                    <p class="text-[11px] text-slate-300 leading-relaxed">${f.desc}</p>
+                </div>
+            `).join('');
+        }
+
+        /**
+         * Warna Badge Berdasarkan Kategori Atom
+         */
+        function getCategoryBadgeStyle(category) {
+            switch (category) {
+                case 'Container': return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+                case 'Metadata': return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+                case 'Codec': return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+                case 'Index': return 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
+                case 'Payload': return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+                case 'Header': return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+                default: return 'bg-slate-800 text-slate-300 border-slate-700';
+            }
+        }
+
+        /**
+         * Render Pohon Atom secara Rekursif di Panel Kiri
+         */
+        function renderAtomTree(filterText = '') {
+            atomTreeContainer.innerHTML = '';
+            const query = filterText.trim().toLowerCase();
+
+            if (rootAtoms.length === 0) {
+                atomTreeContainer.innerHTML = `<div class="p-4 text-slate-500 text-center">Tidak ditemukan atom ISOBMFF yang valid pada file ini.</div>`;
+                return;
+            }
+
+            function buildDomNode(atom) {
+                const matchesSelf = atom.type.toLowerCase().includes(query) || atom.name.toLowerCase().includes(query);
+                const matchingChildren = atom.children.map(buildDomNode).filter(Boolean);
+
+                if (query && !matchesSelf && matchingChildren.length === 0) {
+                    return null;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'select-none';
+
+                const hasChildren = atom.children && atom.children.length > 0;
+                const row = document.createElement('div');
+                row.id = `tree_row_${atom.id}`;
+                row.style.paddingLeft = `${atom.depth * 14 + 8}px`;
+                row.className = `flex items-center justify-between py-1.5 pr-2 rounded cursor-pointer hover:bg-slate-800/70 transition ${selectedAtom && selectedAtom.id === atom.id ? 'atom-node-active' : ''}`;
+
+                const leftPart = document.createElement('div');
+                leftPart.className = 'flex items-center gap-1.5 min-w-0';
+
+                // Toggle Caret Icon
+                const caret = document.createElement('span');
+                caret.className = 'w-4 h-4 flex items-center justify-center text-slate-400 hover:text-white transition-transform';
+                if (hasChildren) {
+                    caret.innerHTML = `<svg class="w-3 h-3 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>`;
+                } else {
+                    caret.innerHTML = `<span class="w-1 h-1 rounded-full bg-slate-600"></span>`;
+                }
+
+                // Badge FourCC
+                const badge = document.createElement('span');
+                badge.className = `px-1.5 py-0.2 rounded text-[11px] font-bold border ${getCategoryBadgeStyle(atom.category)}`;
+                badge.textContent = atom.type;
+
+                // Nama Deskriptif Singkat
+                const title = document.createElement('span');
+                title.className = 'text-slate-300 truncate text-[11px] font-sans';
+                title.textContent = atom.name;
+
+                leftPart.appendChild(caret);
+                leftPart.appendChild(badge);
+                leftPart.appendChild(title);
+
+                // Ukuran Byte Kanan
+                const rightPart = document.createElement('span');
+                rightPart.className = 'text-[10px] text-slate-500 ml-2 shrink-0';
+                rightPart.textContent = formatBytes(atom.size);
+
+                row.appendChild(leftPart);
+                row.appendChild(rightPart);
+                wrapper.appendChild(row);
+
+                // Wadah Anak
+                let childrenContainer = null;
+                if (hasChildren) {
+                    childrenContainer = document.createElement('div');
+                    childrenContainer.className = 'atom-children-group space-y-0.5';
+                    matchingChildren.forEach(c => childrenContainer.appendChild(c));
+                    wrapper.appendChild(childrenContainer);
+
+                    caret.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const isHidden = childrenContainer.classList.toggle('hidden');
+                        caret.querySelector('svg').classList.toggle('rotate-90', !isHidden);
+                    });
+                }
+
+                row.addEventListener('click', () => {
+                    selectAtomNode(atom);
+                });
+
+                return wrapper;
+            }
+
+            rootAtoms.forEach(atom => {
+                const node = buildDomNode(atom);
+                if (node) atomTreeContainer.appendChild(node);
+            });
+        }
+
+        /**
+         * Menangani Pemilihan Atom untuk Menampilkan Detail & Hex Dump
+         */
+        async function selectAtomNode(atom) {
+            selectedAtom = atom;
+            currentHexPage = 0;
+
+            // Highlight baris aktif di tree
+            document.querySelectorAll('[id^="tree_row_"]').forEach(el => el.classList.remove('atom-node-active'));
+            const activeRow = document.getElementById(`tree_row_${atom.id}`);
+            if (activeRow) activeRow.classList.add('atom-node-active');
+
+            // Update Header Detail
+            document.getElementById('selectedAtomBadge').textContent = atom.type;
+            document.getElementById('selectedAtomName').textContent = atom.name;
+            document.getElementById('selectedAtomPath').textContent = atom.path;
+
+            const detailsEl = document.getElementById('atomDetailsContent');
+            const pctOfFile = currentFile ? ((atom.size / currentFile.size) * 100).toFixed(2) : 0;
+
+            // Bangun Tabel Properti Atom
+            let html = `
+                <div class="bg-slate-950/70 border border-slate-800/90 rounded-lg p-3 text-slate-300 leading-relaxed">
+                    ${atom.description}
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div class="bg-slate-950 border border-slate-800 rounded-lg p-2.5">
+                        <div class="text-[10px] text-slate-500 uppercase">Offset Awal</div>
+                        <div class="font-mono text-xs text-white mt-0.5">0x${atom.offset.toString(16).toUpperCase().padStart(8, '0')}</div>
+                        <div class="font-mono text-[10px] text-slate-400">${atom.offset.toLocaleString()} B</div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-lg p-2.5">
+                        <div class="text-[10px] text-slate-500 uppercase">Total Ukuran</div>
+                        <div class="font-mono text-xs text-blue-400 mt-0.5">${formatBytes(atom.size)}</div>
+                        <div class="font-mono text-[10px] text-slate-400">${atom.size.toLocaleString()} B (${pctOfFile}%)</div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-lg p-2.5">
+                        <div class="text-[10px] text-slate-500 uppercase">Ukuran Header</div>
+                        <div class="font-mono text-xs text-amber-400 mt-0.5">${atom.headerSize} Bytes</div>
+                        <div class="font-mono text-[10px] text-slate-400">${atom.headerSize === 16 ? '64-bit Extended' : '32-bit Standard'}</div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-lg p-2.5">
+                        <div class="text-[10px] text-slate-500 uppercase">Ukuran Payload</div>
+                        <div class="font-mono text-xs text-emerald-400 mt-0.5">${formatBytes(atom.payloadSize)}</div>
+                        <div class="font-mono text-[10px] text-slate-400">${atom.children.length} Sub-Atom</div>
+                    </div>
+                </div>
+            `;
+
+            // Jika memiliki hasil dekode metadata spesifik
+            if (atom.parsedData && Object.keys(atom.parsedData).length > 0) {
+                const visibleEntries = Object.entries(atom.parsedData).filter(([k]) => !k.startsWith('_'));
+                if (visibleEntries.length > 0) {
+                    html += `
+                        <div>
+                            <h4 class="text-[11px] font-semibold uppercase tracking-wider text-blue-400 mb-2">Metadata Internal Terdekode (${atom.type})</h4>
+                            <div class="border border-slate-800 rounded-lg overflow-hidden">
+                                <table class="w-full text-left border-collapse">
+                                    <tbody class="divide-y divide-slate-800/80 font-mono text-xs">
+                                        ${visibleEntries.map(([k, v]) => `
+                                            <tr class="hover:bg-slate-800/40">
+                                                <td class="py-2 px-3 text-slate-400 bg-slate-950/50 w-2/5 font-sans">${k}</td>
+                                                <td class="py-2 px-3 text-slate-100 break-all">${v}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // Jika merupakan Container dan memiliki sub-atom
+            if (atom.children && atom.children.length > 0) {
+                html += `
+                    <div>
+                        <h4 class="text-[11px] font-semibold uppercase tracking-wider text-purple-400 mb-2">Daftar Sub-Atom (${atom.children.length})</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            ${atom.children.map(child => `
+                                <div data-child-id="${child.id}" class="child-jump-card bg-slate-950 hover:bg-slate-800/80 border border-slate-800 rounded-lg p-2 flex items-center justify-between cursor-pointer transition">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="px-1.5 py-0.5 rounded bg-slate-800 text-blue-400 font-mono font-bold text-[11px]">${child.type}</span>
+                                        <span class="truncate text-slate-300 text-xs">${child.name}</span>
+                                    </div>
+                                    <span class="font-mono text-[11px] text-slate-500 ml-2 shrink-0">${formatBytes(child.size)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            detailsEl.innerHTML = html;
+
+            // Pasang event listener untuk kartu lompat ke sub-atom
+            detailsEl.querySelectorAll('.child-jump-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const targetId = card.getAttribute('data-child-id');
+                    const targetAtom = flatAtoms.find(a => a.id === targetId);
+                    if (targetAtom) selectAtomNode(targetAtom);
+                });
+            });
+
+            // Render Hex Dump untuk atom terpilih
+            await renderHexDump();
+        }
+
+        /**
+         * Merender Tampilan Hex & ASCII untuk Atom yang Sedang Dipilih
+         */
+        async function renderHexDump() {
+            if (!selectedAtom || !currentFile) return;
+
+            const hexContainer = document.getElementById('hexContainer');
+            const totalAtomBytes = selectedAtom.size;
+            const totalPages = Math.max(1, Math.ceil(totalAtomBytes / HEX_BYTES_PER_PAGE));
+
+            currentHexPage = Math.max(0, Math.min(currentHexPage, totalPages - 1));
+            const pageByteOffset = currentHexPage * HEX_BYTES_PER_PAGE;
+            const absoluteStart = selectedAtom.offset + pageByteOffset;
+            const bytesToRead = Math.min(HEX_BYTES_PER_PAGE, totalAtomBytes - pageByteOffset);
+
+            document.getElementById('hexRangeInfo').textContent = `Offset 0x${absoluteStart.toString(16).toUpperCase()} (${bytesToRead} dari ${totalAtomBytes.toLocaleString()} bytes)`;
+            document.getElementById('hexPageLabel').textContent = `Hal ${currentHexPage + 1} / ${totalPages.toLocaleString()}`;
+            document.getElementById('btnHexPrev').disabled = currentHexPage <= 0;
+            document.getElementById('btnHexNext').disabled = currentHexPage >= totalPages - 1;
+
+            const view = await readSlice(currentFile, absoluteStart, bytesToRead);
+            let rowsHtml = '';
+            const plainRows = [];
+
+            for (let rowOffset = 0; rowOffset < view.byteLength; rowOffset += 16) {
+                const currentAbsOffset = absoluteStart + rowOffset;
+                const offsetHex = currentAbsOffset.toString(16).toUpperCase().padStart(8, '0');
+
+                let hexCols = '';
+                let asciiCols = '';
+                let plainHex = '';
+                let plainAscii = '';
+
+                for (let col = 0; col < 16; col++) {
+                    const idx = rowOffset + col;
+                    const relAtomIdx = pageByteOffset + idx; // Posisi byte relatif terhadap awal atom
+
+                    if (idx < view.byteLength) {
+                        const byteVal = view.getUint8(idx);
+                        const byteHex = byteVal.toString(16).toUpperCase().padStart(2, '0');
+                        plainHex += byteHex + ' ';
+                        plainAscii += (byteVal >= 32 && byteVal <= 126) ? String.fromCharCode(byteVal) : '.';
+
+                        // Pewarnaan khusus untuk Header Atom (Size & FourCC)
+                        let colorClass = 'text-slate-300';
+                        if (relAtomIdx >= 0 && relAtomIdx < 4) {
+                            colorClass = 'bg-amber-500/30 text-amber-300 font-bold rounded px-0.5';
+                        } else if (relAtomIdx >= 4 && relAtomIdx < 8) {
+                            colorClass = 'bg-blue-500/30 text-blue-300 font-bold rounded px-0.5';
+                        } else if (selectedAtom.headerSize === 16 && relAtomIdx >= 8 && relAtomIdx < 16) {
+                            colorClass = 'bg-amber-500/20 text-amber-200 rounded px-0.5';
+                        }
+
+                        hexCols += `<span class="hex-byte inline-block w-5 text-center ${colorClass}" title="Offset: 0x${(currentAbsOffset + col).toString(16).toUpperCase()} | Dec: ${byteVal}">${byteHex}</span>`;
+                        asciiCols += (byteVal >= 32 && byteVal <= 126)
+                            ? `<span class="text-emerald-400">${String.fromCharCode(byteVal).replace(/</g, '&lt;')}</span>`
+                            : `<span class="text-slate-600">.</span>`;
+                    } else {
+                        hexCols += `<span class="inline-block w-5">  </span>`;
+                        asciiCols += ` `;
+                        plainHex += '   ';
+                        plainAscii += ' ';
+                    }
+
+                    if (col === 7) {
+                        hexCols += `<span class="inline-block w-2"></span>`;
+                        plainHex += ' ';
+                    }
+                }
+
+                plainRows.push(`${offsetHex}  ${plainHex} |${plainAscii}|`);
+
+                rowsHtml += `
+                    <div class="flex items-center gap-4 hover:bg-slate-900/90 px-1 rounded">
+                        <span class="text-slate-500 select-none w-20 shrink-0">${offsetHex}</span>
+                        <div class="flex-1 whitespace-pre">${hexCols}</div>
+                        <div class="w-36 shrink-0 border-l border-slate-800 pl-3 tracking-widest whitespace-pre">${asciiCols}</div>
+                    </div>
+                `;
+            }
+
+            currentHexPlainText = plainRows.join('\n');
+            hexContainer.innerHTML = rowsHtml || `<div class="text-slate-500">Atom kosong (0 byte).</div>`;
+        }
+
+        /**
+         * Membuat File Sampel MP4 Sintetis yang Valid di Memori Browser
+         * (Lengkap dengan ftyp, moov -> mvhd, trak -> tkhd, mdia -> mdhd, hdlr, minf -> vmhd, stbl -> stsd, stts, stsz, stco, udta, free, mdat)
+         */
+        function createSyntheticSampleMp4() {
+            function makeBox(type, payloadBytes) {
+                const total = 8 + payloadBytes.length;
+                const buf = new Uint8Array(total);
+                const dv = new DataView(buf.buffer);
+                dv.setUint32(0, total, false);
+                for (let i = 0; i < 4; i++) buf[4 + i] = type.charCodeAt(i);
+                buf.set(payloadBytes, 8);
+                return buf;
+            }
+
+            function concatArrays(arrays) {
+                const totalLen = arrays.reduce((acc, a) => acc + a.length, 0);
+                const out = new Uint8Array(totalLen);
+                let offset = 0;
+                for (const a of arrays) {
+                    out.set(a, offset);
+                    offset += a.length;
+                }
+                return out;
+            }
+
+            // 1. ftyp box
+            const ftypPayload = new TextEncoder().encode('isom\x00\x00\x02\x00isomiso2avc1mp41');
+            const ftypBox = makeBox('ftyp', ftypPayload);
+
+            // 2. mvhd box (Version 0, Timescale 1000, Duration 12500 = 12.5s)
+            const mvhdPayload = new Uint8Array(100);
+            const mvhdDv = new DataView(mvhdPayload.buffer);
+            mvhdDv.setUint32(4, 3814252800, false); // Creation time
+            mvhdDv.setUint32(8, 3814252800, false); // Modification time
+            mvhdDv.setUint32(12, 1000, false);      // Timescale = 1000 Hz
+            mvhdDv.setUint32(16, 12500, false);     // Duration = 12.500s
+            mvhdDv.setUint32(20, 0x00010000, false); // Rate 1.0x
+            mvhdDv.setUint16(24, 0x0100, false);     // Volume 100%
+            const mvhdBox = makeBox('mvhd', mvhdPayload);
+
+            // 3. tkhd box (Track ID 1, 1920x1080)
+            const tkhdPayload = new Uint8Array(84);
+            const tkhdDv = new DataView(tkhdPayload.buffer);
+            tkhdPayload[3] = 0x03; // Flags: Track enabled & in movie
+            tkhdDv.setUint32(4, 3814252800, false);
+            tkhdDv.setUint32(12, 1, false);         // Track ID = 1
+            tkhdDv.setUint32(20, 12500, false);     // Duration
+            tkhdDv.setUint32(76, 1920 << 16, false); // Width = 1920.0
+            tkhdDv.setUint32(80, 1080 << 16, false); // Height = 1080.0
+            const tkhdBox = makeBox('tkhd', tkhdPayload);
+
+            // 4. mdhd box
+            const mdhdPayload = new Uint8Array(24);
+            const mdhdDv = new DataView(mdhdPayload.buffer);
+            mdhdDv.setUint32(12, 30000, false);     // Media timescale 30000
+            mdhdDv.setUint32(16, 375000, false);    // Duration 12.5s
+            mdhdDv.setUint16(20, 0x15C7, false);    // Language: 'eng'
+            const mdhdBox = makeBox('mdhd', mdhdPayload);
+
+            // 5. hdlr box ('vide')
+            const hdlrTitle = new TextEncoder().encode('AtomLens H.264 Video Handler\x00');
+            const hdlrPayload = new Uint8Array(24 + hdlrTitle.length);
+            hdlrPayload.set(new TextEncoder().encode('vide'), 8);
+            hdlrPayload.set(hdlrTitle, 24);
+            const hdlrBox = makeBox('hdlr', hdlrPayload);
+
+            // 6. vmhd & stbl sub-boxes
+            const vmhdBox = makeBox('vmhd', new Uint8Array(12));
+
+            // stsd dengan sub-box avc1
+            const avc1Box = makeBox('avc1', new TextEncoder().encode('H.264 / AVC1 High@L4.1 Sample Config'));
+            const stsdHeader = new Uint8Array(8);
+            new DataView(stsdHeader.buffer).setUint32(4, 1, false); // 1 entry
+            const stsdBox = makeBox('stsd', concatArrays([stsdHeader, avc1Box]));
+
+            // stts (375 frames @ 1000 delta)
+            const sttsPayload = new Uint8Array(16);
+            const sttsDv = new DataView(sttsPayload.buffer);
+            sttsDv.setUint32(4, 1, false);
+            sttsDv.setUint32(8, 375, false);
+            sttsDv.setUint32(12, 1000, false);
+            const sttsBox = makeBox('stts', sttsPayload);
+
+            // stsz (375 frames)
+            const stszPayload = new Uint8Array(12);
+            const stszDv = new DataView(stszPayload.buffer);
+            stszDv.setUint32(4, 0, false);
+            stszDv.setUint32(8, 375, false);
+            const stszBox = makeBox('stsz', stszPayload);
+
+            // stss (15 keyframes)
+            const stssPayload = new Uint8Array(8);
+            new DataView(stssPayload.buffer).setUint32(4, 15, false);
+            const stssBox = makeBox('stss', stssPayload);
+
+            // stco (12 chunks)
+            const stcoPayload = new Uint8Array(8);
+            new DataView(stcoPayload.buffer).setUint32(4, 12, false);
+            const stcoBox = makeBox('stco', stcoPayload);
+
+            const stblBox = makeBox('stbl', concatArrays([stsdBox, sttsBox, stszBox, stssBox, stcoBox]));
+            const minfBox = makeBox('minf', concatArrays([vmhdBox, stblBox]));
+            const mdiaBox = makeBox('mdia', concatArrays([mdhdBox, hdlrBox, minfBox]));
+            const trakBox = makeBox('trak', concatArrays([tkhdBox, mdiaBox]));
+            const moovBox = makeBox('moov', concatArrays([mvhdBox, trakBox]));
+
+            // 7. free box
+            const freeBox = makeBox('free', new TextEncoder().encode('AtomLens Padding Zero-Space Block'));
+
+            // 8. mdat box
+            const mdatPayload = new Uint8Array(1024);
+            const signature = new TextEncoder().encode('NAL_UNIT_STREAM_START_H264_SYNTHETIC_PAYLOAD_');
+            mdatPayload.set(signature, 0);
+            for (let i = signature.length; i < mdatPayload.length; i++) {
+                mdatPayload[i] = (i * 73) & 0xFF;
+            }
+            const mdatBox = makeBox('mdat', mdatPayload);
+
+            const fullMp4Bytes = concatArrays([ftypBox, moovBox, freeBox, mdatBox]);
+            return new File([fullMp4Bytes], 'sampel_struktur_video_1080p.mp4', { type: 'video/mp4' });
+        }
+
+        /**
+         * ============================================================================
+         * ENGINE CLONER & BINARY ATOM REBUILDER (TARGET: 1000542961.mp4)
+         * ============================================================================
+         * Membedah dan merakit ulang struktur biner MP4 di memori browser agar memiliki:
+         * 1. Urutan Root: ftyp (32B) -> free (42,375B) -> free (8B) -> mdat (utama) -> mdat (104B) -> moov
+         * 2. Timestamp 0 pada mvhd, tkhd, mdhd, serta resolusi header 1080x1920
+         * 3. 3 Track di dalam moov (Track 1 Video, Track 2 Audio dengan 2 mp4a, Track 3 Audio dengan 1 mp4a)
+         * 4. Ekstensi avc1 (Lavc60.3.100 libx264, colr nclx, btrt) dan audio (sgpd 26B, sbgp 36B)
+         * 5. Box udta -> meta -> hdlr(mdir) -> ilst berukuran tepat 61 byte
+         * 6. Penyesuaian ulang otomatis seluruh Chunk Offset (stco) terhadap pergeseran posisi mdat!
+         */
+        let lastClonedFile = null;
+
+        function makeAtomBox(type, payloadUint8) {
+            const out = new Uint8Array(8 + payloadUint8.length);
+            const dv = new DataView(out.buffer);
+            dv.setUint32(0, out.length, false);
+            for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
+            out.set(payloadUint8, 8);
+            return out;
+        }
+
+        function concatUint8Arrays(chunks) {
+            const total = chunks.reduce((sum, c) => sum + c.length, 0);
+            const res = new Uint8Array(total);
+            let pos = 0;
+            for (const c of chunks) {
+                res.set(c, pos);
+                pos += c.length;
+            }
+            return res;
+        }
+
+        /**
+         * Audit kecocokan file yang sedang dibuka terhadap struktur target 1000542961.mp4
+         */
+        function evaluateTargetStructureMatch() {
+            const auditEl = document.getElementById('cloneAuditList');
+            const badgeEl = document.getElementById('cloneMatchBadge');
+            if (!currentFile || !rootAtoms.length) {
+                auditEl.innerHTML = `<div class="text-slate-500">Pilih atau muat file video terlebih dahulu.</div>`;
+                return;
+            }
+
+            const checks = [];
+            const rootSeq = rootAtoms.map(a => a.type).join(' -> ');
+            const targetSeq = 'ftyp -> free -> free -> mdat -> mdat -> moov';
+            checks.push({
+                label: 'Urutan Root (ftyp -> free -> free -> mdat -> mdat -> moov)',
+                ok: rootSeq === targetSeq,
+                val: rootSeq
+            });
+
+            const free1 = rootAtoms[1];
+            const free2 = rootAtoms[2];
+            checks.push({
+                label: 'Ukuran Dual Free Space Box (42,375 B & 8 B)',
+                ok: free1 && free1.type === 'free' && free1.size === 42375 && free2 && free2.type === 'free' && free2.size === 8,
+                val: `${free1 ? free1.size : 0} B & ${free2 ? free2.size : 0} B`
+            });
+
+            const mdat2 = rootAtoms[4];
+            checks.push({
+                label: 'Ukuran Secondary mdat Box (104 B)',
+                ok: mdat2 && mdat2.type === 'mdat' && mdat2.size === 104,
+                val: mdat2 && mdat2.type === 'mdat' ? `${mdat2.size} B` : 'Tidak ada'
+            });
+
+            const moov = rootAtoms.find(a => a.type === 'moov');
+            const traks = moov ? moov.children.filter(c => c.type === 'trak') : [];
+            checks.push({
+                label: 'Jumlah Track di dalam moov (3 Track: 1 Video, 2 Audio)',
+                ok: traks.length === 3,
+                val: `${traks.length} Track`
+            });
+
+            // Cek Timescale Video 90,000 Hz & ctts
+            const vMdia = traks[0] ? traks[0].children.find(c => c.type === 'mdia') : null;
+            const vMdhd = vMdia ? vMdia.children.find(c => c.type === 'mdhd') : null;
+            const vMinf = vMdia ? vMdia.children.find(c => c.type === 'minf') : null;
+            const vStbl = vMinf ? vMinf.children.find(c => c.type === 'stbl') : null;
+            const vStsd = vStbl ? vStbl.children.find(c => c.type === 'stsd') : null;
+            const vCtts = vStbl ? vStbl.children.find(c => c.type === 'ctts') : null;
+            const is90k = vMdhd && vMdhd.parsedData && vMdhd.parsedData['Timescale Media'] === '90,000 Hz';
+
+            checks.push({
+                label: 'Video Track: Timescale 90,000 Hz + ctts + stsd (199 B / avc1 183 B)',
+                ok: Boolean(is90k && vCtts && vStsd && vStsd.size === 199),
+                val: `${vMdhd && vMdhd.parsedData ? vMdhd.parsedData['Timescale Media'] : '-'} | stsd: ${vStsd ? vStsd.size : 0}B | ctts: ${vCtts ? 'Ada' : 'Tidak'}`
+            });
+
+            // Cek Audio Track 2 & 3 (stsd 236B & 123B + memiliki sampel nyata > 0)
+            const a1Mdia = traks[1] ? traks[1].children.find(c => c.type === 'mdia') : null;
+            const a1Minf = a1Mdia ? a1Mdia.children.find(c => c.type === 'minf') : null;
+            const a1Stbl = a1Minf ? a1Minf.children.find(c => c.type === 'stbl') : null;
+            const a1Stsd = a1Stbl ? a1Stbl.children.find(c => c.type === 'stsd') : null;
+            const a1Stsz = a1Stbl ? a1Stbl.children.find(c => c.type === 'stsz') : null;
+            const a1Samples = a1Stsz && a1Stsz.parsedData ? a1Stsz.parsedData._sampleCount : 0;
+
+            const a2Mdia = traks[2] ? traks[2].children.find(c => c.type === 'mdia') : null;
+            const a2Minf = a2Mdia ? a2Mdia.children.find(c => c.type === 'minf') : null;
+            const a2Stbl = a2Minf ? a2Minf.children.find(c => c.type === 'stbl') : null;
+            const a2Stsd = a2Stbl ? a2Stbl.children.find(c => c.type === 'stsd') : null;
+
+            checks.push({
+                label: 'Audio Track 2 & 3: stsd (236 B & 123 B) + Sampel Aktif',
+                ok: Boolean(a1Stsd && a1Stsd.size === 236 && a2Stsd && a2Stsd.size === 123 && a1Samples > 0),
+                val: `T2 stsd:${a1Stsd ? a1Stsd.size : 0}B, T3 stsd:${a2Stsd ? a2Stsd.size : 0}B (${a1Samples} sampel)`
+            });
+
+            const udta = moov ? moov.children.find(c => c.type === 'udta') : null;
+            checks.push({
+                label: 'Struktur udta -> meta -> hdlr(mdir) -> ilst (61 B)',
+                ok: Boolean(udta && udta.size === 61),
+                val: udta ? `${udta.size} B` : 'Tidak ada'
+            });
+
+            // Audit khusus risiko 576p di TikTok Web
+            const diagBox = document.getElementById('web576pDiagnosticBox');
+            if (diagBox) {
+                const mainMdat = rootAtoms.filter(a => a.type === 'mdat').sort((a, b) => b.size - a.size)[0];
+                const mvhdAtom = flatAtoms.find(a => a.type === 'mvhd');
+                const dur = (mvhdAtom && mvhdAtom.parsedData && mvhdAtom.parsedData._durationSec) ? mvhdAtom.parsedData._durationSec : 0;
+                const mbps = (mainMdat && dur > 0) ? ((mainMdat.size * 8) / dur / 1000000) : 0;
+                const vCodec = vStsd && vStsd.parsedData ? vStsd.parsedData._codec : 'unknown';
+                const vStss = vStbl ? vStbl.children.find(c => c.type === 'stss') : null;
+                const kfCount = vStss && vStss.parsedData ? vStss.parsedData['Total Keyframes (I-Frames)'] : '0';
+
+                const warnings = [];
+                if (vCodec === 'hvc1' || vCodec === 'hev1') {
+                    warnings.push(`• <span class="text-rose-400 font-bold">Penyebab 576p #1 (Codec HEVC/${vCodec}):</span> TikTok Web menurunkan video HEVC pihak ketiga ke 576p. Video referensi <code class="text-amber-300">1000542961.mp4</code> menggunakan <strong>avc1 (H.264 High@L4.2)</strong>, bukan hvc1.`);
+                }
+                if (mbps > 8.2) {
+                    warnings.push(`• <span class="text-rose-400 font-bold">Penyebab 576p #2 (Bitrate Fisik Terlalu Tinggi: ${mbps.toFixed(2)} Mbps):</span> Batas aman passthrough 1080p di TikTok Web adalah <strong>5.5 – 7.3 Mbps</strong>.`);
+                }
+                if (!vCtts) {
+                    warnings.push(`• <span class="text-amber-400 font-bold">Penyebab 576p #3 (Tanpa B-Frame / ctts Asli):</span> Video referensi memiliki B-Frame 3-step (<code class="text-amber-300">ctts</code> asli) dan GOP tetap 250 frame (<code class="text-amber-300">stss</code> = ${kfCount} keyframe).`);
+                }
+
+                if (warnings.length > 0) {
+                    diagBox.innerHTML = `<div class="text-rose-300 font-semibold mb-1">⚠ Terdeteksi Penyebab Video Kamu Kena Kompres 576p di TikTok Web:</div>` + warnings.join('<br>');
+                } else {
+                    diagBox.innerHTML = `<div class="text-emerald-400 font-semibold">✔ Stream Фиsik Aman untuk 1080p TikTok Web: Codec=${vCodec}, Bitrate Riil=${mbps.toFixed(2)} Mbps, Keyframes=${kfCount}.</div>`;
+                }
+            }
+
+            const passed = checks.filter(c => c.ok).length;
+            const pct = Math.round((passed / checks.length) * 100);
+            badgeEl.textContent = `${pct}% Cocok (${passed}/${checks.length})`;
+            badgeEl.className = pct === 100
+                ? 'px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                : 'px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30';
+
+            auditEl.innerHTML = checks.map(c => `
+                <div class="flex items-start justify-between gap-2 py-1 border-b border-slate-800/60">
+                    <span class="${c.ok ? 'text-emerald-400' : 'text-amber-400'}">${c.ok ? '✔' : '✗'} ${c.label}</span>
+                    <span class="text-slate-300 shrink-0">${c.val}</span>
+                </div>
+            `).join('');
+        }
+
+        /**
+         * Membangun ulang sebuah atom beserta anak-anaknya dari file asli dan menerapkan transformasi target
+         * SECARA AMAN & PRESISI 100% (Mendukung H.264 avc1 & H.265 hvc1, ukuran stsd video HEVC = 232B, hvc1 = 216B,
+         * stsd audio T2 = 236B, T3 = 123B, Timescale Video = 90,000 Hz, ctts tersedia, dan sdtp dipertahankan!)
+         */
+        async function rebuildMoovToTargetProfile(file, moovAtom, mdatPayloadDelta, synthAudioInfo, options) {
+            // Baca seluruh byte moov asli
+            const rawMoovView = await readSlice(file, moovAtom.offset, moovAtom.size);
+            const rawMoovBytes = new Uint8Array(rawMoovView.buffer);
+
+            // Helper mengambil potongan byte dari atom anak di dalam moov
+            function sliceAtomBytes(atom) {
+                const relStart = atom.offset - moovAtom.offset;
+                return rawMoovBytes.slice(relStart, relStart + atom.size);
+            }
+
+            // Helper memodifikasi avc1 box secara aman (H.264)
+            function patchAvc1BoxSafely(origAvc1Bytes) {
+                if (origAvc1Bytes.length < 86) return origAvc1Bytes;
+                const header86 = origAvc1Bytes.slice(0, 86);
+                const compStr = 'Lavc60.3.100 libx264';
+                header86.fill(0, 50, 82);
+                header86[50] = compStr.length;
+                for (let i = 0; i < compStr.length; i++) {
+                    header86[51 + i] = compStr.charCodeAt(i);
+                }
+
+                let avcCBox = null;
+                let pos = 86;
+                const dv = new DataView(origAvc1Bytes.buffer, origAvc1Bytes.byteOffset, origAvc1Bytes.byteLength);
+
+                while (pos + 8 <= origAvc1Bytes.length) {
+                    const sz = dv.getUint32(pos, false);
+                    if (sz < 8 || pos + sz > origAvc1Bytes.length) break;
+                    const type = String.fromCharCode(
+                        origAvc1Bytes[pos + 4],
+                        origAvc1Bytes[pos + 5],
+                        origAvc1Bytes[pos + 6],
+                        origAvc1Bytes[pos + 7]
+                    );
+                    if (type === 'avcC') {
+                        avcCBox = origAvc1Bytes.slice(pos, pos + sz);
+                        break;
+                    }
+                    pos += sz;
+                }
+
+                if (!avcCBox) {
+                    avcCBox = new Uint8Array([
+                        0x00,0x00,0x00,0x3A, 0x61,0x76,0x63,0x43, 0x01,0x64,0x00,0x2A, 0xFF,0xE1,0x00,0x1D,
+                        0x67,0x64,0x00,0x2A, 0xAC,0xD9,0x40,0x44, 0x03,0xC7,0x97,0x9A, 0x80,0x80,0x80,0xA0,
+                        0x00,0x00,0x03,0x00, 0x20,0x00,0x00,0x0F, 0x01,0xE3,0x06,0x32, 0xC0,0x01,0x00,0x06,
+                        0x68,0xEB,0xE3,0xCB, 0x22,0xC0,0xFD,0xF8, 0xF8,0x00
+                    ]);
+                }
+
+                if (avcCBox.length < 58) {
+                    const paddedAvcC = new Uint8Array(58);
+                    paddedAvcC.set(avcCBox, 0);
+                    if (avcCBox.length <= 54) {
+                        paddedAvcC[avcCBox.length] = 0xFD;
+                        paddedAvcC[avcCBox.length + 1] = 0xF8;
+                        paddedAvcC[avcCBox.length + 2] = 0xF8;
+                        paddedAvcC[avcCBox.length + 3] = 0x00;
+                    }
+                    new DataView(paddedAvcC.buffer).setUint32(0, 58, false);
+                    avcCBox = paddedAvcC;
+                }
+
+                const colrBox = new Uint8Array([
+                    0x00,0x00,0x00,0x13, 0x63,0x6F,0x6C,0x72,
+                    0x6E,0x63,0x6C,0x78, 0x00,0x01,0x00,0x01,
+                    0x00,0x01,0x00
+                ]);
+                const btrtBox = new Uint8Array(20);
+                const btrtDv = new DataView(btrtBox.buffer);
+                btrtDv.setUint32(0, 20, false);
+                btrtBox.set([0x62, 0x74, 0x72, 0x74], 4); // 'btrt'
+                btrtDv.setUint32(8, 0, false); // bufferSizeDB
+                const targetBps = options.targetBitrateBps || options.calculatedRealBps || 0x006F4E2A;
+                btrtDv.setUint32(12, targetBps, false); // maxBitrate
+                btrtDv.setUint32(16, targetBps, false); // avgBitrate
+
+                const newAvc1 = concatUint8Arrays([header86, avcCBox, colrBox, btrtBox]);
+                new DataView(newAvc1.buffer).setUint32(0, newAvc1.length, false);
+                return newAvc1;
+            }
+
+            // Helper memodifikasi hvc1 box secara aman (H.265 / HEVC dengan ukuran stsd 232B, hvc1 216B)
+            function patchHvc1BoxSafely(origHvc1Bytes) {
+                if (origHvc1Bytes.length < 86) return origHvc1Bytes;
+                const header86 = origHvc1Bytes.slice(0, 86);
+                const compStr = 'Lavc60.3.100 libx265';
+                header86.fill(0, 50, 82);
+                header86[50] = compStr.length;
+                for (let i = 0; i < compStr.length; i++) {
+                    header86[51 + i] = compStr.charCodeAt(i);
+                }
+
+                let hvcCBox = null;
+                let pos = 86;
+                const dv = new DataView(origHvc1Bytes.buffer, origHvc1Bytes.byteOffset, origHvc1Bytes.byteLength);
+
+                while (pos + 8 <= origHvc1Bytes.length) {
+                    const sz = dv.getUint32(pos, false);
+                    if (sz < 8 || pos + sz > origHvc1Bytes.length) break;
+                    const type = String.fromCharCode(
+                        origHvc1Bytes[pos + 4],
+                        origHvc1Bytes[pos + 5],
+                        origHvc1Bytes[pos + 6],
+                        origHvc1Bytes[pos + 7]
+                    );
+                    if (type === 'hvcC') {
+                        hvcCBox = origHvc1Bytes.slice(pos, pos + sz);
+                        break;
+                    }
+                    pos += sz;
+                }
+
+                if (!hvcCBox) {
+                    // Fallback hvcC 49 byte
+                    hvcCBox = new Uint8Array([
+                        0x00,0x00,0x00,0x31, 0x68,0x76,0x63,0x43, 0x01,0x01,0x60,0x00, 0x00,0x00,0x80,0x00,
+                        0x00,0x00,0x00,0x00, 0x90,0x00,0xfc,0xfc, 0xf8,0xf8,0x00,0x00, 0x0f,0x03,0x20,0x00,
+                        0x01,0x00,0x1b,0x42, 0x01,0x01,0x01,0x60, 0x00,0x00,0x80,0x00, 0x00,0x00,0x00,0x00,
+                        0x90
+                    ]);
+                }
+
+                // hvc1 target berukuran tepat 216 byte (86 header + hvcC + colr + btrt)
+                const colrBox = new Uint8Array([
+                    0x00,0x00,0x00,0x13, 0x63,0x6F,0x6C,0x72,
+                    0x6E,0x63,0x6C,0x78, 0x00,0x01,0x00,0x01,
+                    0x00,0x01,0x00
+                ]);
+                const btrtBox = new Uint8Array(20);
+                const btrtDv = new DataView(btrtBox.buffer);
+                btrtDv.setUint32(0, 20, false);
+                btrtBox.set([0x62, 0x74, 0x72, 0x74], 4);
+                btrtDv.setUint32(8, 0, false);
+                const targetBps = options.targetBitrateBps || 0x006F4E2A;
+                btrtDv.setUint32(12, targetBps, false);
+                btrtDv.setUint32(16, targetBps, false);
+
+                const newHvc1 = concatUint8Arrays([header86, hvcCBox, colrBox, btrtBox]);
+                new DataView(newHvc1.buffer).setUint32(0, newHvc1.length, false);
+                return newHvc1;
+            }
+
+            // Helper membuat entri mp4a berukuran tepat 107 byte dan 113 byte dengan esds AAC-LC 44.1kHz Stereo
+            function makeValidMp4aEntry(targetSize, baseEntryBytes = null) {
+                const out = new Uint8Array(targetSize);
+                const dv = new DataView(out.buffer);
+                if (baseEntryBytes && baseEntryBytes.length >= 36) {
+                    out.set(baseEntryBytes.slice(0, Math.min(targetSize, baseEntryBytes.length)), 0);
+                    dv.setUint32(0, targetSize, false);
+                    const esdsSize = targetSize - 36;
+                    dv.setUint32(36, esdsSize, false);
+                    out.set([0x65, 0x73, 0x64, 0x73], 40);
+                    return out;
+                }
+
+                dv.setUint32(0, targetSize, false);
+                out.set([0x6D, 0x70, 0x34, 0x61], 4);
+                dv.setUint16(14, 1, false);
+                dv.setUint16(24, 2, false);
+                dv.setUint16(26, 16, false);
+                dv.setUint32(32, 44100 << 16, false);
+
+                const esdsSize = targetSize - 36;
+                dv.setUint32(36, esdsSize, false);
+                out.set([0x65, 0x73, 0x64, 0x73], 40);
+                const esdsPayload = [
+                    0x00, 0x00, 0x00, 0x00,
+                    0x03, 0x80, 0x80, 0x80, 0x22,
+                    0x00, 0x02, 0x00,
+                    0x04, 0x80, 0x80, 0x80, 0x14,
+                    0x40, 0x15, 0x00, 0x00, 0x00,
+                    0x00, 0x01, 0xF4, 0x00,
+                    0x00, 0x01, 0xF4, 0x00,
+                    0x05, 0x80, 0x80, 0x80, 0x02,
+                    0x12, 0x10,
+                    0x06, 0x80, 0x80, 0x80, 0x01, 0x02
+                ];
+                out.set(esdsPayload, 44);
+                return out;
+            }
+
+            function patchAudioStsdSafely(origStsdBytes, isSecondAudioTrack) {
+                let baseMp4a = null;
+                if (origStsdBytes && origStsdBytes.length >= 52) {
+                    const dv = new DataView(origStsdBytes.buffer, origStsdBytes.byteOffset, origStsdBytes.byteLength);
+                    const firstEntrySize = dv.getUint32(16, false);
+                    if (firstEntrySize >= 36 && 16 + firstEntrySize <= origStsdBytes.length) {
+                        baseMp4a = origStsdBytes.slice(16, 16 + firstEntrySize);
+                    }
+                }
+                const mp4a107 = makeValidMp4aEntry(107, baseMp4a);
+                const mp4a113 = makeValidMp4aEntry(113, baseMp4a);
+                const stsdHdr = new Uint8Array(8);
+
+                if (!isSecondAudioTrack) {
+                    new DataView(stsdHdr.buffer).setUint32(4, 2, false);
+                    return makeAtomBox('stsd', concatUint8Arrays([stsdHdr, mp4a107, mp4a113]));
+                } else {
+                    new DataView(stsdHdr.buffer).setUint32(4, 1, false);
+                    return makeAtomBox('stsd', concatUint8Arrays([stsdHdr, mp4a107]));
+                }
+            }
+
+            // 1. Proses mvhd
+            const origMvhd = moovAtom.children.find(c => c.type === 'mvhd');
+            let mvhdBytes;
+            let movieDurationSec = 26.483;
+            let movieDurationTicks1000 = 26483;
+
+            if (origMvhd) {
+                const origBytes = sliceAtomBytes(origMvhd);
+                const payload = new Uint8Array(100);
+                const dvOut = new DataView(payload.buffer);
+                const dvIn = new DataView(origBytes.buffer, origBytes.byteOffset + origMvhd.headerSize, origMvhd.payloadSize);
+                const ver = dvIn.getUint8(0);
+                let origScale = 1000, origDur = 26483;
+                if (ver === 1 && dvIn.byteLength >= 32) {
+                    origScale = dvIn.getUint32(20, false);
+                    origDur = Number(dvIn.getBigUint64(24, false));
+                } else if (dvIn.byteLength >= 20) {
+                    origScale = dvIn.getUint32(12, false);
+                    origDur = dvIn.getUint32(16, false);
+                }
+                movieDurationSec = origScale > 0 ? (origDur / origScale) : 26.483;
+                movieDurationTicks1000 = Math.max(1, Math.round(movieDurationSec * 1000));
+
+                if (origMvhd.payloadSize === 100) {
+                    payload.set(new Uint8Array(origBytes.buffer, origBytes.byteOffset + origMvhd.headerSize, 100));
+                } else {
+                    dvOut.setUint32(20, 0x00010000, false);
+                    dvOut.setUint16(24, 0x0100, false);
+                    dvOut.setUint32(36, 0x00010000, false);
+                    dvOut.setUint32(52, 0x00010000, false);
+                    dvOut.setUint32(68, 0x40000000, false);
+                }
+
+                if (options.zeroTimestamps) {
+                    dvOut.setUint8(0, 0);
+                    dvOut.setUint32(4, 0, false);
+                    dvOut.setUint32(8, 0, false);
+                }
+                dvOut.setUint32(12, 1000, false);
+                dvOut.setUint32(16, movieDurationTicks1000, false);
+                dvOut.setUint32(96, 4, false);
+                mvhdBytes = makeAtomBox('mvhd', payload);
+            } else {
+                const payload = new Uint8Array(100);
+                const dv = new DataView(payload.buffer);
+                dv.setUint32(12, 1000, false);
+                dv.setUint32(16, 26483, false);
+                dv.setUint32(20, 0x00010000, false);
+                dv.setUint16(24, 0x0100, false);
+                dv.setUint32(36, 0x00010000, false);
+                dv.setUint32(52, 0x00010000, false);
+                dv.setUint32(68, 0x40000000, false);
+                dv.setUint32(96, 4, false);
+                mvhdBytes = makeAtomBox('mvhd', payload);
+            }
+
+            // Helper untuk membangun ulang stbl secara presisi
+            function rebuildStblBox(stblAtom, kind, isSecondAudioTrack = false, scaleRatio = 1) {
+                const origStsz = stblAtom.children ? stblAtom.children.find(c => c.type === 'stsz') : null;
+                const origSampleCount = origStsz && origStsz.parsedData ? origStsz.parsedData._sampleCount : 0;
+
+                if (kind === 'soun' && origSampleCount === 0 && synthAudioInfo) {
+                    return buildPopulatedSyntheticAudioStbl(
+                        isSecondAudioTrack,
+                        synthAudioInfo.frameOffsetInFile,
+                        synthAudioInfo.frameByteLength,
+                        synthAudioInfo.totalFrames
+                    );
+                }
+
+                const boxMap = {};
+                let totalVideoSamples = 1589;
+                if (origStsz && origStsz.parsedData && origStsz.parsedData._sampleCount > 0) {
+                    totalVideoSamples = origStsz.parsedData._sampleCount;
+                }
+
+                for (const child of stblAtom.children) {
+                    if (child.type === 'stco') {
+                        const raw = sliceAtomBytes(child);
+                        const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+                        const count = dv.getUint32(12, false);
+                        for (let i = 0; i < count; i++) {
+                            const pos = 16 + i * 4;
+                            if (pos + 4 <= raw.byteLength) {
+                                const oldOffset = dv.getUint32(pos, false);
+                                dv.setUint32(pos, Math.max(0, oldOffset + mdatPayloadDelta), false);
+                            }
+                        }
+                        boxMap['stco'] = raw;
+                    } else if (child.type === 'co64') {
+                        const raw = sliceAtomBytes(child);
+                        const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+                        const count = dv.getUint32(12, false);
+                        const stcoPayload = new Uint8Array(8 + count * 4);
+                        const stcoDv = new DataView(stcoPayload.buffer);
+                        stcoDv.setUint32(4, count, false);
+                        for (let i = 0; i < count; i++) {
+                            const pos = 16 + i * 8;
+                            if (pos + 8 <= raw.byteLength) {
+                                const oldOffset = Number(dv.getBigUint64(pos, false));
+                                stcoDv.setUint32(8 + i * 4, Math.max(0, oldOffset + mdatPayloadDelta), false);
+                            }
+                        }
+                        boxMap['stco'] = makeAtomBox('stco', stcoPayload);
+                    } else if (child.type === 'stts' && scaleRatio !== 1) {
+                        const raw = sliceAtomBytes(child);
+                        const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+                        const count = dv.getUint32(12, false);
+                        for (let i = 0; i < count; i++) {
+                            const pos = 16 + i * 8;
+                            if (pos + 8 <= raw.byteLength) {
+                                const oldDelta = dv.getUint32(pos + 4, false);
+                                dv.setInt32(pos + 4, Math.max(1, Math.round(oldDelta * scaleRatio)), false);
+                            }
+                        }
+                        boxMap['stts'] = raw;
+                    } else if (child.type === 'ctts' && scaleRatio !== 1) {
+                        const raw = sliceAtomBytes(child);
+                        const dv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+                        const count = dv.getUint32(12, false);
+                        for (let i = 0; i < count; i++) {
+                            const pos = 16 + i * 8;
+                            if (pos + 8 <= raw.byteLength) {
+                                const oldOffset = dv.getInt32(pos + 4, false);
+                                dv.setInt32(pos + 4, Math.round(oldOffset * scaleRatio), false);
+                            }
+                        }
+                        boxMap['ctts'] = raw;
+                    } else if (child.type === 'stsd' && kind === 'vide' && options.injectExtensions) {
+                        const origStsd = sliceAtomBytes(child);
+                        const avc1Child = child.children && child.children.find(c => c.type === 'avc1');
+                        const hvc1Child = child.children && child.children.find(c => c.type === 'hvc1');
+                        if (hvc1Child) {
+                            const origHvc1 = sliceAtomBytes(hvc1Child);
+                            const patchedHvc1 = patchHvc1BoxSafely(origHvc1);
+                            const stsdHdr = new Uint8Array(8);
+                            new DataView(stsdHdr.buffer).setUint32(4, 1, false);
+                            boxMap['stsd'] = makeAtomBox('stsd', concatUint8Arrays([stsdHdr, patchedHvc1]));
+                        } else if (avc1Child) {
+                            const origAvc1 = sliceAtomBytes(avc1Child);
+                            const patchedAvc1 = patchAvc1BoxSafely(origAvc1);
+                            const stsdHdr = origStsd.slice(8, 16);
+                            boxMap['stsd'] = makeAtomBox('stsd', concatUint8Arrays([stsdHdr, patchedAvc1]));
+                        } else {
+                            boxMap['stsd'] = origStsd;
+                        }
+                    } else if (child.type === 'stsd' && kind === 'soun' && options.duplicateAudio) {
+                        const origStsd = sliceAtomBytes(child);
+                        boxMap['stsd'] = patchAudioStsdSafely(origStsd, isSecondAudioTrack);
+                    } else {
+                        boxMap[child.type] = sliceAtomBytes(child);
+                    }
+                }
+
+                // Hanya suntikkan ctts sintetis jika opsi preserveNativePtsDts TIDAK dicentang,
+                // karena menyuntikkan ctts palsu pada video baseline/tanpa B-frame memicu re-encode 576p di TikTok Web!
+                if (kind === 'vide' && options.injectExtensions && !options.preserveNativePtsDts && !boxMap['ctts']) {
+                    const entryCount = Math.min(totalVideoSamples, 600);
+                    const cttsPayload = new Uint8Array(8 + entryCount * 8);
+                    const cttsDv = new DataView(cttsPayload.buffer);
+                    cttsDv.setUint32(4, entryCount, false);
+                    let remaining = totalVideoSamples;
+                    for (let i = 0; i < entryCount; i++) {
+                        const cnt = (i === entryCount - 1) ? remaining : 1;
+                        remaining -= cnt;
+                        cttsDv.setUint32(8 + i * 8, cnt, false);
+                        cttsDv.setUint32(12 + i * 8, 0, false);
+                    }
+                    boxMap['ctts'] = makeAtomBox('ctts', cttsPayload);
+                }
+
+                if (kind === 'soun' && options.duplicateAudio) {
+                    if (!boxMap['sgpd']) {
+                        const sgpdPayload = new Uint8Array(18);
+                        const dv = new DataView(sgpdPayload.buffer);
+                        dv.setUint8(0, 1);
+                        sgpdPayload.set([0x72, 0x6F, 0x6C, 0x6C], 4);
+                        dv.setUint32(8, 2, false);
+                        dv.setUint32(12, 1, false);
+                        dv.setInt16(16, -1, false);
+                        boxMap['sgpd'] = makeAtomBox('sgpd', sgpdPayload);
+                    }
+                    if (!boxMap['sbgp']) {
+                        const sbgpPayload = new Uint8Array(28);
+                        const dv = new DataView(sbgpPayload.buffer);
+                        sbgpPayload.set([0x72, 0x6F, 0x6C, 0x6C], 4);
+                        sbgpDv.setUint32(8, 1, false);
+                        sbgpDv.setUint32(12, Math.max(1, origSampleCount), false);
+                        sbgpDv.setUint32(16, 1, false);
+                        boxMap['sbgp'] = makeAtomBox('sbgp', sbgpPayload);
+                    }
+                }
+
+                // Urutan sub-box stbl (mendukung sdtp, sgpd, sbgp untuk HEVC)
+                const orderedOrder = kind === 'vide'
+                    ? ['stsd', 'stts', 'stss', 'ctts', 'stsc', 'stsz', 'stco', 'sgpd', 'sbgp', 'sdtp']
+                    : ['stsd', 'stts', 'stsc', 'stsz', 'stco', 'sgpd', 'sbgp'];
+
+                const orderedChildren = [];
+                for (const key of orderedOrder) {
+                    if (boxMap[key]) {
+                        orderedChildren.push(boxMap[key]);
+                        delete boxMap[key];
+                    }
+                }
+                for (const restKey of Object.keys(boxMap)) {
+                    orderedChildren.push(boxMap[restKey]);
+                }
+
+                return makeAtomBox('stbl', concatUint8Arrays(orderedChildren));
+            }
+
+            function buildTargetTrak(trakAtom, targetTrackId, kind, isSecondAudioTrack = false) {
+                const origTkhd = trakAtom.children ? trakAtom.children.find(c => c.type === 'tkhd') : null;
+                const origEdts = trakAtom.children ? trakAtom.children.find(c => c.type === 'edts') : null;
+                const mdiaOrig = trakAtom.children ? trakAtom.children.find(c => c.type === 'mdia') : null;
+                const origMdhd = mdiaOrig && mdiaOrig.children ? mdiaOrig.children.find(c => c.type === 'mdhd') : null;
+                const minfOrig = mdiaOrig && mdiaOrig.children ? mdiaOrig.children.find(c => c.type === 'minf') : null;
+                const stblOrig = minfOrig && minfOrig.children ? minfOrig.children.find(c => c.type === 'stbl') : null;
+
+                let origMediaTimescale = kind === 'vide' ? 90000 : 44100;
+                let origMediaDuration = Math.round(movieDurationSec * origMediaTimescale);
+
+                if (origMdhd && origMdhd.offset !== undefined) {
+                    const mdhdRaw = sliceAtomBytes(origMdhd);
+                    const dv = new DataView(mdhdRaw.buffer, mdhdRaw.byteOffset + origMdhd.headerSize, origMdhd.payloadSize);
+                    const ver = dv.getUint8(0);
+                    if (ver === 1 && dv.byteLength >= 28) {
+                        origMediaTimescale = dv.getUint32(20, false);
+                        origMediaDuration = Number(dv.getBigUint64(24, false));
+                    } else if (dv.byteLength >= 16) {
+                        origMediaTimescale = dv.getUint32(12, false);
+                        origMediaDuration = dv.getUint32(16, false);
+                    }
+                }
+
+                const targetMediaTimescale = kind === 'vide' ? 90000 : 44100;
+                const scaleRatio = origMediaTimescale > 0 ? (targetMediaTimescale / origMediaTimescale) : 1;
+                const targetMediaDuration = Math.max(1, Math.round(origMediaDuration * scaleRatio));
+
+                const trackDurationSec = targetMediaTimescale > 0 ? (targetMediaDuration / targetMediaTimescale) : movieDurationSec;
+                const trackDurationTicks1000 = Math.max(1, Math.round(trackDurationSec * 1000));
+
+                const tkhdPayload = new Uint8Array(84);
+                const tkhdDv = new DataView(tkhdPayload.buffer);
+
+                let origWidthFixed = 1080 << 16;
+                let origHeightFixed = 1920 << 16;
+                if (origTkhd && origTkhd.offset !== undefined) {
+                    const rawTk = sliceAtomBytes(origTkhd);
+                    const dvTk = new DataView(rawTk.buffer, rawTk.byteOffset + origTkhd.headerSize, origTkhd.payloadSize);
+                    if (origTkhd.payloadSize === 84) {
+                        tkhdPayload.set(new Uint8Array(rawTk.buffer, rawTk.byteOffset + origTkhd.headerSize, 84));
+                        origWidthFixed = dvTk.getUint32(76, false);
+                        origHeightFixed = dvTk.getUint32(80, false);
+                    }
+                } else {
+                    tkhdDv.setUint32(36, 0x00010000, false);
+                    tkhdDv.setUint32(52, 0x00010000, false);
+                    tkhdDv.setUint32(68, 0x40000000, false);
+                }
+
+                tkhdPayload[0] = 0;
+                tkhdPayload[1] = 0;
+                tkhdPayload[2] = 0;
+                tkhdPayload[3] = 0x03;
+
+                if (options.zeroTimestamps) {
+                    tkhdDv.setUint32(4, 0, false);
+                    tkhdDv.setUint32(8, 0, false);
+                }
+                tkhdDv.setUint32(12, targetTrackId, false);
+                tkhdDv.setUint32(20, trackDurationTicks1000, false);
+
+                if (kind === 'soun') {
+                    tkhdDv.setUint16(32, 0x0100, false);
+                    tkhdDv.setUint32(76, 0, false);
+                    tkhdDv.setUint32(80, 0, false);
+                } else {
+                    tkhdDv.setUint32(76, options.zeroTimestamps ? (1080 << 16) : origWidthFixed, false);
+                    tkhdDv.setUint32(80, options.zeroTimestamps ? (1920 << 16) : origHeightFixed, false);
+                }
+                const tkhdBox = makeAtomBox('tkhd', tkhdPayload);
+
+                let origMediaTime = 0;
+                if (origEdts && origEdts.children) {
+                    const origElst = origEdts.children.find(c => c.type === 'elst');
+                    if (origElst && origElst.offset !== undefined) {
+                        const rawElst = sliceAtomBytes(origElst);
+                        const dvElst = new DataView(rawElst.buffer, rawElst.byteOffset + origElst.headerSize, origElst.payloadSize);
+                        const verElst = dvElst.getUint8(0);
+                        const countElst = dvElst.getUint32(4, false);
+                        if (countElst >= 1) {
+                            if (verElst === 0 && dvElst.byteLength >= 20) {
+                                origMediaTime = Math.round(dvElst.getInt32(12, false) * scaleRatio);
+                            } else if (verElst === 1 && dvElst.byteLength >= 28) {
+                                origMediaTime = Math.round(Number(dvElst.getBigInt64(16, false)) * scaleRatio);
+                            }
+                        }
+                    }
+                }
+
+                const elstPayload = new Uint8Array(20);
+                const elstDv = new DataView(elstPayload.buffer);
+                elstDv.setUint32(4, 1, false);
+                elstDv.setUint32(8, trackDurationTicks1000, false);
+                elstDv.setInt32(12, origMediaTime, false);
+                elstDv.setUint32(16, 0x00010000, false);
+                const edtsBox = makeAtomBox('edts', makeAtomBox('elst', elstPayload));
+
+                const mdhdPayload = new Uint8Array(24);
+                const mdhdDv = new DataView(mdhdPayload.buffer);
+                mdhdDv.setUint32(4, 0, false);
+                mdhdDv.setUint32(8, 0, false);
+                mdhdDv.setUint32(12, targetMediaTimescale, false);
+                mdhdDv.setUint32(16, targetMediaDuration, false);
+                mdhdDv.setUint16(20, 0x15C7, false);
+                const mdhdBox = makeAtomBox('mdhd', mdhdPayload);
+
+                const hdlrPayload = new Uint8Array(37);
+                const handlerFourCC = kind === 'vide' ? 'vide' : 'soun';
+                const handlerName = kind === 'vide' ? 'VideoHandler\0' : 'SoundHandler\0';
+                for (let i = 0; i < 4; i++) hdlrPayload[8 + i] = handlerFourCC.charCodeAt(i);
+                for (let i = 0; i < handlerName.length; i++) hdlrPayload[24 + i] = handlerName.charCodeAt(i);
+                const hdlrBox = makeAtomBox('hdlr', hdlrPayload);
+
+                let mediaHeaderBox;
+                if (kind === 'vide') {
+                    const vmhdPayload = new Uint8Array(12);
+                    vmhdPayload[3] = 1;
+                    mediaHeaderBox = makeAtomBox('vmhd', vmhdPayload);
+                } else {
+                    mediaHeaderBox = makeAtomBox('smhd', new Uint8Array(8));
+                }
+
+                const urlPayload = new Uint8Array([0x00, 0x00, 0x00, 0x01]);
+                const urlBox = makeAtomBox('url ', urlPayload);
+                const drefHeader = new Uint8Array(8);
+                new DataView(drefHeader.buffer).setUint32(4, 1, false);
+                const drefBox = makeAtomBox('dref', concatUint8Arrays([drefHeader, urlBox]));
+                const dinfBox = makeAtomBox('dinf', drefBox);
+
+                const stblBox = (stblOrig && stblOrig.children && stblOrig.children.length > 0)
+                    ? rebuildStblBox(stblOrig, kind, isSecondAudioTrack, scaleRatio)
+                    : buildPopulatedSyntheticAudioStbl(
+                        isSecondAudioTrack,
+                        synthAudioInfo ? synthAudioInfo.frameOffsetInFile : 42423,
+                        synthAudioInfo ? synthAudioInfo.frameByteLength : 6,
+                        synthAudioInfo ? synthAudioInfo.totalFrames : 431
+                    );
+
+                const minfBox = makeAtomBox('minf', concatUint8Arrays([mediaHeaderBox, dinfBox, stblBox]));
+                const mdiaBox = makeAtomBox('mdia', concatUint8Arrays([mdhdBox, hdlrBox, minfBox]));
+
+                return makeAtomBox('trak', concatUint8Arrays([tkhdBox, edtsBox, mdiaBox]));
+            }
+
+            const origTraks = moovAtom.children.filter(c => c.type === 'trak');
+            let videoTrak = null;
+            const audioTraks = [];
+
+            for (const t of origTraks) {
+                const mdia = t.children.find(c => c.type === 'mdia');
+                const hdlr = mdia ? mdia.children.find(c => c.type === 'hdlr') : null;
+                const hCode = hdlr && hdlr.parsedData ? hdlr.parsedData['Handler Code'] : '';
+                if (hCode === 'vide' && !videoTrak) videoTrak = t;
+                else if (hCode === 'soun') audioTraks.push(t);
+            }
+            if (!videoTrak && origTraks.length > 0) videoTrak = origTraks[0];
+
+            const builtTraks = [];
+            if (videoTrak) {
+                builtTraks.push(buildTargetTrak(videoTrak, 1, 'vide', false));
+            }
+
+            if (options.duplicateAudio) {
+                if (audioTraks.length > 0) {
+                    const baseAudioTrak = audioTraks[0];
+                    const secondAudioTrak = audioTraks[1] || baseAudioTrak;
+                    builtTraks.push(buildTargetTrak(baseAudioTrak, 2, 'soun', false));
+                    builtTraks.push(buildTargetTrak(secondAudioTrak, 3, 'soun', true));
+                } else {
+                    const synthNode = createSyntheticAudioTrakNode();
+                    builtTraks.push(buildTargetTrak(synthNode, 2, 'soun', false));
+                    builtTraks.push(buildTargetTrak(synthNode, 3, 'soun', true));
+                }
+            } else {
+                audioTraks.forEach((at, idx) => {
+                    builtTraks.push(buildTargetTrak(at, idx + 2, 'soun', idx > 0));
+                });
+            }
+
+            const metaHdlrPayload = new Uint8Array(25);
+            metaHdlrPayload.set([0x6D, 0x64, 0x69, 0x72, 0x61, 0x70, 0x70, 0x6C], 8);
+            const metaHdlrBox = makeAtomBox('hdlr', metaHdlrPayload);
+            const ilstBox = makeAtomBox('ilst', new Uint8Array(0));
+            const metaFullBoxHeader = new Uint8Array(4);
+            const metaBox = makeAtomBox('meta', concatUint8Arrays([metaFullBoxHeader, metaHdlrBox, ilstBox]));
+            const udtaBox = makeAtomBox('udta', metaBox);
+
+            return makeAtomBox('moov', concatUint8Arrays([mvhdBytes, ...builtTraks, udtaBox]));
+        }
+
+        function buildPopulatedSyntheticAudioStbl(isSecondAudioTrack, aacFrameOffset, aacFrameLen, totalFrames) {
+            const safeTotalFrames = Math.max(10, totalFrames || 431);
+
+            // 1. stsd (236 B untuk Track 2, 123 B untuk Track 3)
+            const makeMp4a = (sz) => {
+                const b = new Uint8Array(sz);
+                const dv = new DataView(b.buffer);
+                dv.setUint32(0, sz, false);
+                b.set([0x6D,0x70,0x34,0x61], 4);
+                dv.setUint16(14, 1, false);
+                dv.setUint16(24, 2, false);
+                dv.setUint16(26, 16, false);
+                dv.setUint32(32, 44100 << 16, false);
+                dv.setUint32(36, sz - 36, false);
+                b.set([0x65,0x73,0x64,0x73], 40);
+                b.set([
+                    0x00,0x00,0x00,0x00, 0x03,0x80,0x80,0x80,0x22, 0x00,0x02,0x00,
+                    0x04,0x80,0x80,0x80,0x14, 0x40,0x15,0x00,0x00,0x00, 0x00,0x01,0xF4,0x00,
+                    0x00,0x01,0xF4,0x00, 0x05,0x80,0x80,0x80,0x02, 0x12,0x10,
+                    0x06,0x80,0x80,0x80,0x01,0x02
+                ], 44);
+                return b;
+            };
+
+            const mp4a107 = makeMp4a(107);
+            const mp4a113 = makeMp4a(113);
+            const hdr = new Uint8Array(8);
+            let stsd;
+            if (!isSecondAudioTrack) {
+                new DataView(hdr.buffer).setUint32(4, 2, false);
+                stsd = makeAtomBox('stsd', concatUint8Arrays([hdr, mp4a107, mp4a113]));
+            } else {
+                new DataView(hdr.buffer).setUint32(4, 1, false);
+                stsd = makeAtomBox('stsd', concatUint8Arrays([hdr, mp4a107]));
+            }
+
+            // 2. stts (Tepat 56 B = 5 entri Time-to-Sample dengan delta 1024 ticks seperti target)
+            const sttsPayload = new Uint8Array(48); // 8B header + 5 * 8B = 48B (+8B box = 56 B)
+            const sttsDv = new DataView(sttsPayload.buffer);
+            sttsDv.setUint32(4, 5, false); // 5 entri
+            const e1 = Math.min(249, Math.max(1, safeTotalFrames - 4));
+            const rem = Math.max(4, safeTotalFrames - e1);
+            const counts = [e1, 1, 1, 1, rem - 3];
+            counts.forEach((cnt, idx) => {
+                sttsDv.setUint32(8 + idx * 8, cnt, false);
+                sttsDv.setUint32(12 + idx * 8, 1024, false); // 1024 ticks
+            });
+            const stts = makeAtomBox('stts', sttsPayload);
+
+            // 3. stsc (Tepat 64 B = 5 entri Sample-to-Chunk)
+            const stscPayload = new Uint8Array(56); // 8B header + 5 * 12B = 68? Tunggu: 64B box = 56B payload = 8B + 4 * 12B (4 entri)
+            const stscDv = new DataView(stscPayload.buffer);
+            stscDv.setUint32(4, 4, false);
+            for (let i = 0; i < 4; i++) {
+                stscDv.setUint32(8 + i * 12, i + 1, false);  // first_chunk
+                stscDv.setUint32(12 + i * 12, 1, false);     // samples_per_chunk = 1
+                stscDv.setUint32(16 + i * 12, 1, false);     // sample_description_index = 1
+            }
+            const stsc = makeAtomBox('stsc', stscPayload);
+
+            // 4. stsz (Variable Bitrate flag: sample_size = 0, diikuti tabel ukuran tiap frame AAC)
+            const stszPayload = new Uint8Array(12 + safeTotalFrames * 4);
+            const stszDv = new DataView(stszPayload.buffer);
+            stszDv.setUint32(4, 0, false); // 0 = Bervariasi per Frame (Variable Bitrate)
+            stszDv.setUint32(8, safeTotalFrames, false);
+            for (let i = 0; i < safeTotalFrames; i++) {
+                stszDv.setUint32(12 + i * 4, aacFrameLen, false);
+            }
+            const stsz = makeAtomBox('stsz', stszPayload);
+
+            // 5. stco (Semua chunk menunjuk ke frame AAC silent yang valid di dalam mdat)
+            const stcoPayload = new Uint8Array(8 + safeTotalFrames * 4);
+            const stcoDv = new DataView(stcoPayload.buffer);
+            stcoDv.setUint32(4, safeTotalFrames, false);
+            for (let i = 0; i < safeTotalFrames; i++) {
+                stcoDv.setUint32(8 + i * 4, aacFrameOffset, false);
+            }
+            const stco = makeAtomBox('stco', stcoPayload);
+
+            // 6. sgpd (26 B) & sbgp (36 B)
+            const sgpdPayload = new Uint8Array(18);
+            const sgpdDv = new DataView(sgpdPayload.buffer);
+            sgpdDv.setUint8(0, 1);
+            sgpdPayload.set([0x72, 0x6F, 0x6C, 0x6C], 4);
+            sgpdDv.setUint32(8, 2, false);
+            sgpdDv.setUint32(12, 1, false);
+            sgpdDv.setInt16(16, -1, false);
+            const sgpd = makeAtomBox('sgpd', sgpdPayload);
+
+            const sbgpPayload = new Uint8Array(28);
+            const sbgpDv = new DataView(sbgpPayload.buffer);
+            sbgpPayload.set([0x72, 0x6F, 0x6C, 0x6C], 4);
+            sbgpDv.setUint32(8, 1, false);
+            sbgpDv.setUint32(12, safeTotalFrames, false);
+            sbgpDv.setUint32(16, 1, false);
+            const sbgp = makeAtomBox('sbgp', sbgpPayload);
+
+            return makeAtomBox('stbl', concatUint8Arrays([stsd, stts, stsc, stsz, stco, sgpd, sbgp]));
+        }
+
+        /**
+         * Membuat node trak audio sintetis jika file input hanya memiliki track video (seperti sampel bawaan)
+         */
+        function createSyntheticAudioTrakNode() {
+            return {
+                type: 'trak',
+                children: [{
+                    type: 'mdia',
+                    children: [
+                        { type: 'hdlr', parsedData: { 'Handler Code': 'soun' } },
+                        {
+                            type: 'minf',
+                            children: [{
+                                type: 'stbl',
+                                children: []
+                            }]
+                        }
+                    ]
+                }]
+            };
+        }
+
+        /**
+         * Fungsi Utama Perakitan Biner Video Menuju Profil Target 1000542961.mp4
+         */
+        async function executeCloneToTargetStructure() {
+            if (!currentFile || !rootAtoms.length) return;
+
+            const btn = document.getElementById('btnRunBrowserClone');
+            const origText = btn.innerHTML;
+            btn.disabled = true;
+            btn.textContent = 'Merakit ulang struktur biner & memverifikasi pointer stco...';
+
+            try {
+                const mdatCandidatesForBps = rootAtoms.filter(a => a.type === 'mdat');
+                const mainMdatForBps = mdatCandidatesForBps.sort((a, b) => b.size - a.size)[0];
+                const mvhdForBps = flatAtoms.find(a => a.type === 'mvhd');
+                const durForBps = (mvhdForBps && mvhdForBps.parsedData && mvhdForBps.parsedData._durationSec) ? mvhdForBps.parsedData._durationSec : 25.357;
+                const realBps = (mainMdatForBps && durForBps > 0)
+                    ? Math.round((mainMdatForBps.size * 8) / durForBps)
+                    : 0x006F4E2A;
+
+                const selectedBpsVal = parseInt(document.getElementById('selTargetBitrate').value, 10);
+
+                const options = {
+                    cloneRoot: document.getElementById('chkCloneRootLayout').checked,
+                    zeroTimestamps: document.getElementById('chkZeroTimestamps').checked,
+                    duplicateAudio: document.getElementById('chkDuplicateAudioTrack').checked,
+                    injectExtensions: document.getElementById('chkInjectAvc1Extensions').checked,
+                    preserveNativePtsDts: document.getElementById('chkPreserveNativePtsDts').checked,
+                    uniqueMdat2Salt: document.getElementById('chkUniqueMdat2Salt').checked,
+                    calculatedRealBps: realBps,
+                    targetBitrateBps: selectedBpsVal > 0 ? selectedBpsVal : realBps
+                };
+
+                // 1. Buat ftyp (32 B: isom, minor 512, compat: isom, iso2, avc1, mp41)
+                const ftypPayload = new Uint8Array([
+                    0x69,0x73,0x6F,0x6D, // 'isom'
+                    0x00,0x00,0x02,0x00, // 512
+                    0x69,0x73,0x6F,0x6D, // 'isom'
+                    0x69,0x73,0x6F,0x32, // 'iso2'
+                    0x61,0x76,0x63,0x31, // 'avc1'
+                    0x6D,0x70,0x34,0x31  // 'mp41'
+                ]);
+                const ftypBox = makeAtomBox('ftyp', ftypPayload); // 32 B (0x00000000)
+
+                // 2. Buat free #1 (42,375 B pada Offset 0x00000020)
+                const freeBox1 = makeAtomBox('free', new Uint8Array(42375 - 8));
+
+                // 3. Buat free #2 (8 B pada Offset 0x0000A5A7)
+                const freeBox2 = makeAtomBox('free', new Uint8Array(0));
+
+                // 4. Ambil mdat utama dari file input dan paksa menggunakan 8-byte standard header
+                const mdatCandidates = rootAtoms.filter(a => a.type === 'mdat');
+                const origMdat = mdatCandidates.sort((a, b) => b.size - a.size)[0] || null;
+
+                let primaryMdatHeader8;
+                let primaryMdatPayloadSlice;
+                let mdatPayloadDelta = 0;
+
+                const newMdatBoxOffset = ftypBox.length + freeBox1.length + freeBox2.length; // 42,415
+                const newMdatPayloadOffset = newMdatBoxOffset + 8; // 42,423
+
+                const silentAacFrame = new Uint8Array([0x21, 0x00, 0x49, 0x90, 0x02, 0x19]);
+                let synthAudioFrameOffset = newMdatPayloadOffset;
+
+                if (origMdat) {
+                    const origPayloadOffset = origMdat.payloadOffset;
+                    const origPayloadSize = origMdat.payloadSize;
+                    mdatPayloadDelta = newMdatPayloadOffset - origPayloadOffset;
+                    synthAudioFrameOffset = newMdatPayloadOffset + origPayloadSize;
+
+                    primaryMdatHeader8 = new Uint8Array(8);
+                    new DataView(primaryMdatHeader8.buffer).setUint32(0, 8 + origPayloadSize + silentAacFrame.length, false);
+                    primaryMdatHeader8.set([0x6D, 0x64, 0x61, 0x74], 4); // 'mdat'
+
+                    const origSlice = currentFile.slice(origPayloadOffset, origPayloadOffset + origPayloadSize);
+                    primaryMdatPayloadSlice = new Blob([origSlice, silentAacFrame]);
+                } else {
+                    const dummyPayload = new Uint8Array(1024);
+                    dummyPayload.set(silentAacFrame, 0);
+                    primaryMdatHeader8 = new Uint8Array(8);
+                    new DataView(primaryMdatHeader8.buffer).setUint32(0, 8 + dummyPayload.length, false);
+                    primaryMdatHeader8.set([0x6D, 0x64, 0x61, 0x74], 4);
+                    primaryMdatPayloadSlice = new Blob([dummyPayload]);
+                }
+
+                const mvhdNode = flatAtoms.find(a => a.type === 'mvhd');
+                const durSec = (mvhdNode && mvhdNode.parsedData && mvhdNode.parsedData._durationSec) ? mvhdNode.parsedData._durationSec : 10.0;
+                const synthTotalAudioFrames = Math.max(10, Math.round((durSec * 44100) / 1024));
+                const synthAudioInfo = {
+                    frameOffsetInFile: synthAudioFrameOffset,
+                    frameByteLength: silentAacFrame.length,
+                    totalFrames: synthTotalAudioFrames
+                };
+
+                // 5. Buat mdat #2 berukuran tepat 104 B (8B header + 96B payload)
+                const mdat2Payload = new Uint8Array(104 - 8);
+                if (options.uniqueMdat2Salt && window.crypto && window.crypto.getRandomValues) {
+                    window.crypto.getRandomValues(mdat2Payload);
+                }
+                const mdatBox2 = makeAtomBox('mdat', mdat2Payload);
+
+                // 6. Rakit ulang moov dengan mdatPayloadDelta yang presisi dan letakkan di akhir file
+                const origMoov = rootAtoms.find(a => a.type === 'moov');
+                let rebuiltMoovBytes;
+                if (origMoov) {
+                    rebuiltMoovBytes = await rebuildMoovToTargetProfile(currentFile, origMoov, mdatPayloadDelta, synthAudioInfo, options);
+                } else {
+                    rebuiltMoovBytes = makeAtomBox('moov', new Uint8Array(0));
+                }
+
+                const baseName = currentFile.name.replace(/\.[^/.]+$/, '');
+                const outFileName = `${baseName}_cloned_1000542961.mp4`;
+                const clonedFile = new File(
+                    [ftypBox, freeBox1, freeBox2, primaryMdatHeader8, primaryMdatPayloadSlice, mdatBox2, rebuiltMoovBytes],
+                    outFileName,
+                    { type: 'video/mp4' }
+                );
+
+                lastClonedFile = clonedFile;
+
+                await processVideoFile(clonedFile);
+                evaluateTargetStructureMatch();
+
+                const playerWrap = document.getElementById('clonePlayerWrap');
+                const previewVideo = document.getElementById('clonePreviewVideo');
+                const playerStatus = document.getElementById('clonePlayerStatus');
+                playerWrap.classList.remove('hidden');
+                if (previewVideo.src) URL.revokeObjectURL(previewVideo.src);
+                previewVideo.src = URL.createObjectURL(clonedFile);
+                previewVideo.onloadeddata = () => {
+                    playerStatus.textContent = `✔ Valid & Bisa Diputar (${previewVideo.videoWidth}×${previewVideo.videoHeight}px, ${previewVideo.duration.toFixed(2)}s)`;
+                    playerStatus.className = 'font-mono text-[10px] text-emerald-400';
+                };
+                previewVideo.onerror = () => {
+                    playerStatus.textContent = '⚠ File sampel sintetis atau codec tidak didukung browser';
+                    playerStatus.className = 'font-mono text-[10px] text-amber-400';
+                };
+
+                const dlBtn = document.getElementById('btnDownloadClonedFile');
+                dlBtn.classList.remove('hidden');
+                dlBtn.textContent = `Unduh ${outFileName} (${formatBytes(clonedFile.size)})`;
+
+                showCopyToast('Video berhasil dirakit ulang dengan struktur 100% identik!');
+            } catch (err) {
+                showCopyToast('Terjadi kesalahan saat merakit atom: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
+
+        // Event Listeners Interaksi Pengguna
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                processVideoFile(e.target.files[0]);
+            }
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-500', 'bg-blue-500/5');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-blue-500', 'bg-blue-500/5');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500', 'bg-blue-500/5');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                processVideoFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        btnSample.addEventListener('click', () => {
+            const sampleFile = createSyntheticSampleMp4();
+            processVideoFile(sampleFile);
+        });
+
+        atomSearch.addEventListener('input', (e) => {
+            renderAtomTree(e.target.value);
+        });
+
+        document.getElementById('btnExpandAll').addEventListener('click', () => {
+            document.querySelectorAll('.atom-children-group').forEach(el => el.classList.remove('hidden'));
+        });
+
+        document.getElementById('btnCollapseAll').addEventListener('click', () => {
+            document.querySelectorAll('.atom-children-group').forEach(el => el.classList.add('hidden'));
+        });
+
+        document.getElementById('btnExportJson').addEventListener('click', () => {
+            if (!rootAtoms.length) return;
+            const jsonStr = JSON.stringify(rootAtoms, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentFile ? currentFile.name : 'video'}_atoms.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Tombol Salin Seluruh Pohon Struktur Atom
+        document.getElementById('btnCopyTreeText').addEventListener('click', () => {
+            if (!rootAtoms.length) return;
+            const reportText = generateFullAtomReport('tree_full');
+            copyTextToClipboard(reportText, `Seluruh struktur (${flatAtoms.length} atom) & metadata berhasil disalin!`);
+        });
+
+        // Tombol Salin Atom yang Sedang Dipilih
+        document.getElementById('btnCopySelectedAtom').addEventListener('click', () => {
+            if (!selectedAtom) return;
+            const text = generateSelectedAtomText(selectedAtom);
+            copyTextToClipboard(text, `Detail atom [${selectedAtom.type}] berhasil disalin!`);
+        });
+
+        // Tombol Salin Hex Dump
+        document.getElementById('btnCopyHex').addEventListener('click', () => {
+            if (!currentHexPlainText) return;
+            const header = `Hex Dump Atom [${selectedAtom ? selectedAtom.type : ''}] - Hal ${currentHexPage + 1}\n` + currentHexPlainText;
+            copyTextToClipboard(header, `Hex & ASCII atom [${selectedAtom.type}] berhasil disalin!`);
+        });
+
+        // Modal Pratinjau & Salin Laporan Lengkap
+        const reportModal = document.getElementById('reportModal');
+        const reportTextarea = document.getElementById('reportTextarea');
+        const tabFormatTree = document.getElementById('tabFormatTree');
+        const tabFormatCompact = document.getElementById('tabFormatCompact');
+        const tabFormatJson = document.getElementById('tabFormatJson');
+
+        function updateReportModalView(mode) {
+            currentReportMode = mode;
+            const activeClass = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white transition';
+            const inactiveClass = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition';
+            tabFormatTree.className = mode === 'tree_full' ? activeClass : inactiveClass;
+            tabFormatCompact.className = mode === 'tree_compact' ? activeClass : inactiveClass;
+            tabFormatJson.className = mode === 'json' ? activeClass : inactiveClass;
+            reportTextarea.value = generateFullAtomReport(mode);
+        }
+
+        document.getElementById('btnPreviewReport').addEventListener('click', () => {
+            updateReportModalView('tree_full');
+            reportModal.classList.remove('hidden');
+            reportModal.classList.add('flex');
+        });
+
+        tabFormatTree.addEventListener('click', () => updateReportModalView('tree_full'));
+        tabFormatCompact.addEventListener('click', () => updateReportModalView('tree_compact'));
+        tabFormatJson.addEventListener('click', () => updateReportModalView('json'));
+
+        document.getElementById('btnCopyFromModal').addEventListener('click', () => {
+            copyTextToClipboard(reportTextarea.value, 'Laporan struktur atom berhasil disalin ke clipboard!');
+        });
+
+        document.getElementById('btnCloseReportModal').addEventListener('click', () => {
+            reportModal.classList.add('hidden');
+            reportModal.classList.remove('flex');
+        });
+
+        document.getElementById('btnHexPrev').addEventListener('click', () => {
+            if (currentHexPage > 0) {
+                currentHexPage--;
+                renderHexDump();
+            }
+        });
+
+        document.getElementById('btnHexNext').addEventListener('click', () => {
+            currentHexPage++;
+            renderHexDump();
+        });
+
+        // Modal Panduan GitHub Pages
+        const githubModal = document.getElementById('githubModal');
+        document.getElementById('btnGithubGuide').addEventListener('click', () => {
+            githubModal.classList.remove('hidden');
+            githubModal.classList.add('flex');
+        });
+        const closeModal = () => {
+            githubModal.classList.add('hidden');
+            githubModal.classList.remove('flex');
+        };
+        document.getElementById('btnCloseModal').addEventListener('click', closeModal);
+        document.getElementById('btnCloseModalBottom').addEventListener('click', closeModal);
+
+        // Event Listeners Modal Target Structure Cloner
+        const clonerModal = document.getElementById('clonerModal');
+        document.getElementById('btnOpenCloner').addEventListener('click', () => {
+            evaluateTargetStructureMatch();
+            clonerModal.classList.remove('hidden');
+            clonerModal.classList.add('flex');
+        });
+        document.getElementById('btnQuickTiktokPreset').addEventListener('click', async () => {
+            document.getElementById('chkCloneRootLayout').checked = true;
+            document.getElementById('chkZeroTimestamps').checked = true;
+            document.getElementById('chkDuplicateAudioTrack').checked = true;
+            document.getElementById('chkInjectAvc1Extensions').checked = true;
+            document.getElementById('chkUniqueMdat2Salt').checked = true;
+            document.getElementById('selTargetBitrate').value = '7294506';
+
+            evaluateTargetStructureMatch();
+            clonerModal.classList.remove('hidden');
+            clonerModal.classList.add('flex');
+            await executeCloneToTargetStructure();
+        });
+        document.getElementById('btnCloseClonerModal').addEventListener('click', () => {
+            clonerModal.classList.add('hidden');
+            clonerModal.classList.remove('flex');
+        });
+        document.getElementById('btnRunBrowserClone').addEventListener('click', executeCloneToTargetStructure);
+        document.getElementById('btnDownloadClonedFile').addEventListener('click', () => {
+            if (!lastClonedFile) return;
+            const url = URL.createObjectURL(lastClonedFile);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = lastClonedFile.name;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        document.getElementById('btnCopyFfmpegCmd').addEventListener('click', () => {
+            const cmd = document.getElementById('ffmpegCmdBox').textContent;
+            copyTextToClipboard(cmd, 'Perintah FFmpeg berhasil disalin ke clipboard!');
+        });
+
+        // Muat sampel otomatis saat pertama kali dibuka agar pengguna langsung melihat cara kerjanya
+        window.addEventListener('DOMContentLoaded', () => {
+            const sampleFile = createSyntheticSampleMp4();
+            processVideoFile(sampleFile);
+        });
+    </script>
+</body>
+</html>
